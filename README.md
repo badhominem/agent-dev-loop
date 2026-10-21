@@ -1,10 +1,16 @@
 # Agent Dev Loop
 
+> **Prototype (0.0.x).** Not a security boundary. Expect breaking changes.
+> Tested with a stand-in agent, not yet against live agent sessions.
+
 A visual, convention-driven way to build software with AI agents. People decide
 what the system should do and approve a picture of the change; agents build
 inside that picture; review starts from a picture, not a wall of text.
 
-Works with Claude Code and GitHub Copilot CLI. Python projects first.
+Works with GitHub Copilot CLI and Claude Code. Python projects first.
+
+**Using Copilot CLI? Start with the [Copilot CLI guide](docs/copilot-cli.md):** setup,
+what each command does, what to look out for, and a first test session.
 
 ## The loop
 
@@ -21,10 +27,20 @@ Every agent runs as its own fresh session in the demand's own git worktree.
 
 ## Install
 
+From a release, with no clone needed: download `devloop-<version>-py3-none-any.whl`
+from the Releases page (pure Python, nothing compiled), then:
+
 ```bash
-pip install -e path/to/agent-dev-loop     # puts `loop` on your PATH
-cd your-repo
-loop install --harness claude,copilot      # loop/ folder, AGENTS.md, harness files
+python3 -m pip install --user devloop-0.0.1-py3-none-any.whl   # or: uv tool install ./devloop-…whl
+```
+
+Or from the repository: `uv tool install git+https://github.com/badhominem/agent-dev-loop`.
+To work on the tool itself, clone it and run `uv tool install --editable .`.
+
+Then, in your project:
+
+```bash
+loop install --harness copilot             # or claude, or claude,copilot
 loop onboard                               # existing repo: draft component files + system map
 ```
 
@@ -81,7 +97,7 @@ optionally, `sql_tables: true` for SQL strings.
 
 ## Status and limits of 0.1
 
-Tested here: 38 automated tests, including a full loop run with a stand-in harness,
+Tested here: 39 automated tests, including a full loop run with a stand-in harness,
 the guard against both Claude and Copilot payload formats, and onboarding of two
 real open-source packages. `ruff` and `mypy --strict` pass.
 
@@ -107,5 +123,4 @@ Pocock's grilling skill; the visual-first idea builds on HumanLayer's show-me sk
 
 ## License
 
-Not chosen yet. Add a `LICENSE` file before publishing (MIT is the simplest fit
-with the work this builds on).
+MIT. See `LICENSE`.

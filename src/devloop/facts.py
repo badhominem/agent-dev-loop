@@ -85,7 +85,7 @@ class FactExtractor:
                 continue
             base = root.parent if (root / "__init__.py").exists() else root
             for path in sorted(root.rglob("*.py")):
-                if any(part.startswith(".") or part == "__pycache__" for part in path.parts):
+                if any(part.startswith(".") or part == "__pycache__" for part in path.relative_to(root).parts):
                     continue
                 rel = path.relative_to(base).with_suffix("")
                 parts = list(rel.parts)
