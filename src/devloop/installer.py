@@ -26,7 +26,7 @@ POINTER = (
 def agent_text(repo: Path, role: str) -> str:
     """A repo's own loop/agents/<role>.md wins over the packaged default."""
     custom = repo / "loop" / "agents" / f"{role}.md"
-    return (custom if custom.exists() else TEMPLATES / "agents" / f"{role}.md").read_text()
+    return (custom if custom.exists() else TEMPLATES / "agents" / f"{role}.md").read_text(encoding="utf-8")
 
 
 def split_frontmatter(text: str) -> tuple[dict[str, str], str]:
@@ -58,10 +58,10 @@ class ClaudeCodeAdapter(Adapter):
         for role in ROLES:
             meta, body = split_frontmatter(agent_text(repo, role))
             head = f"---\nname: loop-{role}\ndescription: {json.dumps(meta.get('description', role))}\n---\n"
-            (agents / f"loop-{role}.md").write_text(head + GENERATED.format(role=role) + "\n" + body)
+            (agents / f"loop-{role}.md").write_text(head + GENERATED.format(role=role) + "\n" + body, encoding="utf-8")
             written.append(f".claude/agents/loop-{role}.md")
         path = repo / ".claude" / "settings.json"
-        settings = as_dict(json.loads(path.read_text())) if path.exists() else {}
+        settings = as_dict(json.loads(path.read_text(encoding="utf-8"))) if path.exists() else {}
         hooks = as_dict(settings.get("hooks"))
         pre = [h for h in as_list(hooks.get("PreToolUse")) if isinstance(h, dict)]
         if not any(GUARD_COMMAND in json.dumps(h) for h in pre):
@@ -79,7 +79,7 @@ class ClaudeCodeAdapter(Adapter):
                             current.append(rule)
             permissions[key] = current
         settings["permissions"] = permissions
-        path.write_text(json.dumps(settings, indent=2) + "\n")
+        path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
         written.append(".claude/settings.json (guard hook and tool permissions)")
         return written
 
@@ -94,7 +94,9 @@ class CopilotAdapter(Adapter):
         for role in ROLES:
             meta, body = split_frontmatter(agent_text(repo, role))
             head = f"---\nname: loop-{role}\ndescription: {json.dumps(meta.get('description', role))}\n---\n"
-            (agents / f"loop-{role}.agent.md").write_text(head + GENERATED.format(role=role) + "\n" + body)
+            (agents / f"loop-{role}.agent.md").write_text(
+                head + GENERATED.format(role=role) + "\n" + body, encoding="utf-8"
+            )
             written.append(f".github/agents/loop-{role}.agent.md")
         hooks = repo / ".github" / "hooks"
         hooks.mkdir(parents=True, exist_ok=True)
@@ -106,7 +108,7 @@ class CopilotAdapter(Adapter):
                 ]
             },
         }
-        (hooks / "loop-guard.json").write_text(json.dumps(config, indent=2) + "\n")
+        (hooks / "loop-guard.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
         written.append(".github/hooks/loop-guard.json")
         return written
 
@@ -120,9 +122,9 @@ def install(repo: Path, harnesses: list[str]) -> list[str]:
     for source in sorted(p for p in skeleton.rglob("*") if p.is_file()):
         target = repo / source.relative_to(skeleton)
         if target.name == "AGENTS.md" and target.exists():
-            text = target.read_text()
+            text = target.read_text(encoding="utf-8")
             if "loop/principles.md" not in text:
-                target.write_text(text.rstrip() + "\n" + POINTER)
+                target.write_text(text.rstrip() + "\n" + POINTER, encoding="utf-8")
                 written.append("AGENTS.md (added a pointer)")
             continue
         if not target.exists():
@@ -133,11 +135,11 @@ def install(repo: Path, harnesses: list[str]) -> list[str]:
         (repo / "loop" / folder).mkdir(parents=True, exist_ok=True)
         keep = repo / "loop" / folder / ".gitkeep"
         if not any((repo / "loop" / folder).iterdir()):
-            keep.write_text("")
+            keep.write_text("", encoding="utf-8")
     ignore = repo / ".gitignore"
-    lines = ignore.read_text().splitlines() if ignore.exists() else []
+    lines = ignore.read_text(encoding="utf-8").splitlines() if ignore.exists() else []
     if ".loop/" not in lines:
-        ignore.write_text("\n".join([*lines, ".loop/"]) + "\n")
+        ignore.write_text("\n".join([*lines, ".loop/"]) + "\n", encoding="utf-8")
         written.append(".gitignore (.loop/)")
     for name in harnesses:
         if name not in ADAPTERS:

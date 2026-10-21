@@ -65,7 +65,7 @@ def cmd_onboard(_: argparse.Namespace) -> None:
     created = 0
     for cid, fact in sorted(facts.items()):
         if cid not in existing:
-            (folder / f"{cid}.yaml").write_text(stub_from_facts(fact).to_yaml())
+            (folder / f"{cid}.yaml").write_text(stub_from_facts(fact).to_yaml(), encoding="utf-8")
             created += 1
     report = onboard_report(repo)
     out = repo / ".loop" / "onboard"

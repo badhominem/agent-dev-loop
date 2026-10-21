@@ -184,7 +184,7 @@ class Guard:
             "allowed": decision.allowed,
             "reason": decision.reason or None,
         }
-        with (folder / "commands.log").open("a") as handle:
+        with (folder / "commands.log").open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry) + "\n")
 
 

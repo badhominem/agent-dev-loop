@@ -99,7 +99,7 @@ class Runner:
             "truth_branch": self.conventions.truth_branch,
             "started": time.strftime("%Y-%m-%dT%H:%M"),
         }
-        (folder / "session.yaml").write_text(yaml.safe_dump(info, sort_keys=False))
+        (folder / "session.yaml").write_text(yaml.safe_dump(info, sort_keys=False), encoding="utf-8")
         kickoff = KICKOFF[session.role].format(demand=session.demand)
         command = self.harness.command(session.role, kickoff, interactive)
         env = {

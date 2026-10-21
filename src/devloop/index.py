@@ -141,7 +141,7 @@ def load_scenarios(repo: Path) -> dict[str, Scenario]:
     for path in sorted(folder.rglob("*.feature")):
         feature, tags = path.stem, ""
         entries: list[tuple[str, str, list[str]]] = []
-        for raw in path.read_text().splitlines():
+        for raw in path.read_text(encoding="utf-8").splitlines():
             line = raw.strip()
             if line.startswith("Feature:"):
                 feature = line.removeprefix("Feature:").strip()

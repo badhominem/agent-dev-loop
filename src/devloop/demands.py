@@ -91,7 +91,7 @@ class Queue:
         status[f"{state}_at"] = time.strftime("%Y-%m-%dT%H:%M")
         status.update({k: v for k, v in extra.items() if v is not None})
         path = demand.folder / "status.yaml"
-        path.write_text(yaml.safe_dump(status, sort_keys=False))
+        path.write_text(yaml.safe_dump(status, sort_keys=False), encoding="utf-8")
         git(self.main, "add", str(path))
         git(self.main, "commit", "-q", "-m", f"loop: {demand.id} {message}", "--", str(path))
         return self._load(demand.folder)
@@ -105,10 +105,10 @@ class Queue:
         folder = self.root / f"{max(numbers, default=0) + 1:04d}-{slug}"
         folder.mkdir(parents=True)
         (folder / "demand.md").write_text(
-            f"# {title}\n\n{text or 'Describe the change you want, in words or visuals.'}\n"
+            f"# {title}\n\n{text or 'Describe the change you want, in words or visuals.'}\n", encoding="utf-8"
         )
         status = {"state": "new", "new_at": time.strftime("%Y-%m-%dT%H:%M"), "by": getpass.getuser()}
-        (folder / "status.yaml").write_text(yaml.safe_dump(status, sort_keys=False))
+        (folder / "status.yaml").write_text(yaml.safe_dump(status, sort_keys=False), encoding="utf-8")
         git(self.main, "add", str(folder))
         git(self.main, "commit", "-q", "-m", f"loop: new demand {folder.name}", "--", str(folder))
         return self._load(folder)

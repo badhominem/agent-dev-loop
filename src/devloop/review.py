@@ -258,7 +258,7 @@ class Report:
 
 def _demand_text(folder: Path) -> tuple[str, str]:
     path = folder / "demand.md"
-    lines = path.read_text().splitlines() if path.exists() else [folder.name]
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else [folder.name]
     return lines[0].lstrip("# ").strip(), "\n".join(lines[1:]).strip()
 
 
@@ -369,14 +369,14 @@ def merge_reviewer(report: Report, path: Path) -> None:
 def write_outputs(report: Report, out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     for key, text in report.mermaid.items():
-        (out / f"{key}.mmd").write_text(text)
+        (out / f"{key}.mmd").write_text(text, encoding="utf-8")
     findings = [{"outcome": f.outcome, "text": f.text} for f in report.findings]
     (out / "findings.yaml").write_text(
-        yaml.safe_dump({"verdict": report.verdict(), "findings": findings}, sort_keys=False)
+        yaml.safe_dump({"verdict": report.verdict(), "findings": findings}, sort_keys=False), encoding="utf-8"
     )
     if report.stage == "review":
-        (out / "pr.md").write_text(pr_markdown(report))
-    (out / "report.html").write_text(report_html(report))
+        (out / "pr.md").write_text(pr_markdown(report), encoding="utf-8")
+    (out / "report.html").write_text(report_html(report), encoding="utf-8")
 
 
 def pr_markdown(r: Report) -> str:
@@ -438,7 +438,7 @@ def report_html(r: Report) -> str:
             f'<p class="cap">{html.escape(r.captions.get(key, ""))}</p>'
             f'<div class="diagram"><pre class="mermaid">{html.escape(r.mermaid[key])}</pre></div></section>'
         )
-    page = (TEMPLATES / "report.html").read_text()
+    page = (TEMPLATES / "report.html").read_text(encoding="utf-8")
     return (
         page.replace("{{title}}", html.escape(r.title))
         .replace("{{why}}", html.escape(r.why))

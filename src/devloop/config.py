@@ -39,7 +39,7 @@ def as_strs(value: object) -> tuple[str, ...]:
 def read_yaml(path: Path) -> dict[str, object]:
     if not path.exists():
         return {}
-    loaded: object = yaml.safe_load(path.read_text())
+    loaded: object = yaml.safe_load(path.read_text(encoding="utf-8"))
     return as_dict(loaded)
 
 
@@ -131,7 +131,7 @@ class ToolRegistry:
         path = repo / "loop" / "tools.toml"
         if not path.exists():
             return cls(())
-        raw = as_dict(tomllib.loads(path.read_text()).get("tools"))
+        raw = as_dict(tomllib.loads(path.read_text(encoding="utf-8")).get("tools"))
         tools = tuple(
             ToolRule(
                 name,
@@ -171,7 +171,7 @@ class WorktreeSetup:
         path = repo / "loop" / "worktree.toml"
         if not path.exists():
             return cls((), ())
-        data = tomllib.loads(path.read_text())
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
         return cls(as_strs(data.get("copy")), as_strs(data.get("setup")))
 
 
