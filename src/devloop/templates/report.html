@@ -1,0 +1,68 @@
+<title>Loop Report</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600&display=swap">
+<style>
+/* Layout: one column that follows the demand through the loop; each view is a framed diagram with its caption above */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --fg:#1d2624; --muted:#5d6b68; --line:#c9d3d0;
+  --diagram:#fbfcfc;
+  --back:#2f62a3; --back-bg:#e3ecf7; --stop:#b53a3a; --stop-bg:#f7e3e3; --ok:#2f7a4f; --ok-bg:#e2efe7;
+  --display:"Fraunces",Georgia,serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141a19; --surface:#1c2422; --fg:#e4ebe9; --muted:#9aa9a5; --line:#33403d; --diagram:#f3f5f4;
+  --back:#8fb3e6; --back-bg:#1f2c3d; --stop:#e89090; --stop-bg:#3a2222; --ok:#8fd1a8; --ok-bg:#1d3427; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a19; --surface:#1c2422; --fg:#e4ebe9; --muted:#9aa9a5; --line:#33403d; --diagram:#f3f5f4;
+  --back:#8fb3e6; --back-bg:#1f2c3d; --stop:#e89090; --stop-bg:#3a2222; --ok:#8fd1a8; --ok-bg:#1d3427; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:900px;margin:0 auto;padding-inline:16px;padding-block:28px 56px}
+h1{font-family:var(--display);font-weight:600;font-size:clamp(1.6rem,5vw,2.2rem);margin:0 0 6px;text-wrap:balance}
+.demand{max-width:65ch;margin:0 0 6px}
+.meta{font-family:var(--mono);font-size:.75rem;color:var(--muted);letter-spacing:.03em;margin:0 0 10px}
+.note{font-size:.88rem;color:var(--muted);max-width:65ch;margin:0 0 8px}
+nav{display:flex;flex-wrap:wrap;gap:6px;margin:18px 0 8px}
+nav a{font-family:var(--mono);font-size:.75rem;color:var(--fg);text-decoration:none;border:1px solid var(--line);border-radius:99px;padding:3px 10px;background:var(--surface)}
+nav a:focus-visible,nav a:hover{border-color:var(--fg)}
+.view{margin-top:36px;display:flex;flex-direction:column;gap:8px}
+.view header{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.view h2{font-family:var(--display);font-weight:600;font-size:1.35rem;margin:0}
+.when{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.cap{margin:0;max-width:70ch}
+.diagram{background:var(--diagram);border:1px solid var(--line);border-radius:6px;padding:14px;overflow-x:auto}
+.diagram pre{margin:0;background:transparent;color:#1d2624}
+.outs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:680px){.outs{grid-template-columns:1fr}}
+.out{border-radius:6px;padding:10px 12px;font-size:.9rem;min-width:0}
+.out b{font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;text-transform:uppercase}
+.out ul{margin:6px 0 0;padding-left:18px}
+.out li{margin:3px 0}
+.out.back{background:var(--back-bg)} .out.back b{color:var(--back)}
+.out.stop{background:var(--stop-bg)} .out.stop b{color:var(--stop)}
+.out.carry_on{background:var(--ok-bg)} .out.carry_on b{color:var(--ok)}
+.log{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:4px}
+@media (max-width:680px){.log{grid-template-columns:1fr}}
+.log div{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px 12px;font-size:.9rem;min-width:0}
+.log b{font-size:.9rem}
+.log ul{margin:6px 0 0;padding-left:18px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:.8rem;color:var(--muted);margin-top:4px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:5px;border:1.5px solid}
+</style>
+
+<div class="wrap">
+  <h1>{{title}}</h1>
+  <p class="demand">{{why}}</p>
+  <p class="meta">{{meta}} · every view below is generated from the code and the loop's index files</p>
+  <div class="legend">
+    <span><i class="sw" style="background:#dce9f7;border-color:#2f62a3"></i>added</span>
+    <span><i class="sw" style="background:#f6ebdd;border-color:#a8641f"></i>changed</span>
+    <span><i class="sw" style="background:#eceeee;border-color:#7d8584;border-style:dashed"></i>removed</span>
+    <span><i class="sw" style="background:#ece5f7;border-color:#6a4fa3"></i>unplanned</span>
+    <span><i class="sw" style="background:#ffffff;border-color:#2f62a3;border-style:dashed"></i>planned, missing</span>
+    <span><i class="sw" style="background:#f7dede;border-color:#b53a3a"></i>failing or broken</span>
+    <span><i class="sw" style="background:#dceee3;border-color:#2f7a4f"></i>passing</span>
+    <span><i class="sw" style="background:#ffffff;border-color:#a8641f;border-style:dashed"></i>no test</span>
+    <span><i class="sw" style="background:#fffbe8;border-color:#a8641f;border-style:dotted"></i>draft to confirm</span>
+  </div>
+  <nav>{{nav}}</nav>
+{{sections}}
+</div>

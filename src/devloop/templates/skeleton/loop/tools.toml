@@ -1,0 +1,30 @@
+# Tool registry: which shell commands agents may run.
+# Patterns are command prefixes. Anything not listed counts as "ask".
+#   allow = runs without asking
+#   ask   = needs a human yes (blocked when an agent runs on its own)
+#   deny  = never
+# The guard hook enforces this for every agent session started by `loop`.
+
+[tools.git]
+description = "Version control on the demand's own branch."
+allow = ["git status", "git diff", "git log", "git show", "git add", "git commit", "git restore", "git branch --show-current"]
+ask   = ["git push", "git rebase", "git merge", "git switch", "git checkout"]
+deny  = ["git push --force", "git push -f", "git reset --hard", "git clean", "git worktree"]
+
+[tools.python]
+description = "Run the project's checks."
+allow = ["python -m pytest", "pytest", "ruff check", "ruff format", "mypy", "lint-imports", "uv run pytest", "uv run ruff", "uv run mypy", "uv sync", "uv tree"]
+ask   = ["uv add", "uv remove", "uv lock", "python", "uv run"]
+deny  = ["pip install", "pip3 install", "python -m pip install"]
+
+[tools.loop]
+description = "The loop's own commands."
+allow = ["loop views", "loop status"]
+ask   = []
+deny  = ["loop install", "loop state", "loop approve", "loop reset", "loop close", "loop claim"]
+
+[tools.shell]
+description = "Reading files and folders."
+allow = ["ls", "cat", "head", "tail", "wc", "grep", "rg", "find", "pwd", "echo"]
+ask   = []
+deny  = ["rm -rf", "sudo"]

@@ -1,0 +1,8 @@
+# How a demand's worktree is prepared when the demand is claimed.
+
+# Ignored files to copy from the main checkout, if they exist.
+copy = [".env"]
+
+# Commands run inside the new worktree, in order. Rebuild environments here
+# instead of copying them: virtual environments contain absolute paths.
+setup = []

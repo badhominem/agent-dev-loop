@@ -1,0 +1,6 @@
+# Repo context: lasting facts about this project and its organisation.
+# The planner adds an entry only after a person approves it.
+facts: []
+# - fact: Only PowerShell is available on developer machines
+#   approved_by: joel
+#   added: 2026-10-20

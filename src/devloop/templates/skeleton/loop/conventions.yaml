@@ -1,0 +1,31 @@
+# Repo conventions for the Agent Dev Loop. Agents may not edit this file.
+
+truth_branch: main
+harness: claude              # claude or copilot: which tool `loop` starts agents with
+
+# Code layout. Leave source_roots out to detect it (src/ layout or top-level packages).
+# source_roots: [src]
+component_level: auto        # auto, package or module: what one component is
+                             # auto: modules in the top package, plus one per sub-package
+
+# Review limits
+pr_size_limit: 400           # changed lines in source and tests
+max_back_rounds: 3           # automatic returns to stage 2 before a human is asked
+inside_tests: false          # optional inside-test writer after the builder
+
+# How tests are run. {junit} is replaced with a report path.
+test_command: [python, -m, pytest, -q, -p, "no:warnings", tests/acceptance, "--junitxml={junit}"]
+
+# How code touches tables. Each rule names a call and which argument is the table.
+# Examples:
+#   - {call: read_rows, arg: 0, mode: reads}
+#   - {call: saveAsTable, arg: 0, mode: writes}
+table_rules: []
+sql_tables: false            # also scan SQL strings for FROM / JOIN / INSERT INTO / UPDATE
+
+# Where each agent may write. {demand} is the claimed demand, {source} each source root.
+# zones:
+#   builder: ["{source}/", loop/components/, "loop/demands/{demand}/build.yaml"]
+
+worktree_root: "../{repo}-worktrees"
+view_max_nodes: 30           # larger maps are drawn per boundary instead
