@@ -81,7 +81,8 @@ def _wrap(text: str, width: int = 26) -> list[str]:
 
 def _mm(text: str) -> str:
     """Safe inside a quoted Mermaid label: no markup, quotes or pipes of our own."""
-    return text.replace("&", "#amp;").replace("<", "#lt;").replace(">", "#gt;").replace('"', "#quot;").replace("|", "/")
+    text = text.replace("`", "'").replace("|", "/")  # backticks would start Mermaid markdown, pipes end edge labels
+    return text.replace("&", "#amp;").replace("<", "#lt;").replace(">", "#gt;").replace('"', "#quot;")
 
 
 @dataclass(frozen=True)
@@ -255,12 +256,13 @@ class Diagram:
 
     def to_mermaid(self) -> str:
         """Mermaid text, which GitHub draws in a pull request. Lines are broken here so Mermaid never has to wrap."""
-        out = ["flowchart LR"]
+        out: list[str] = []
         names = {n.id: f"n{i}" for i, n in enumerate(self.nodes())}
         used: dict[str, list[str]] = {}
         for gi, g in enumerate(self._layout()):
             if g.title is not None:
-                out.append(f'  subgraph g{gi}["{_mm("<br/>".join(_wrap(g.title)))}"]')
+                title = "<br/>".join(_mm(x) for x in _wrap(g.title))
+                out.append(f'  subgraph g{gi}["{title}"]')
             for n in g.nodes:
                 label = ["<b>" + "<br/>".join(_mm(x) for x in _wrap(n.title)) + "</b>"]
                 label += [_mm(x) for x in _wrap(n.body)]
@@ -272,6 +274,7 @@ class Diagram:
                     used.setdefault(n.kind, []).append(names[n.id])
             if g.title is not None:
                 out += ["  end", f"  style g{gi} fill:#f1f4f3,stroke:#c9d3d0,color:#16202a"]
+        out.insert(0, "flowchart LR" if self.links or len(names) <= 6 else "flowchart TB")  # lone boxes stack
         styles: list[str] = []
         shown = 0
         for x in self.links:

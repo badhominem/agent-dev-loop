@@ -85,6 +85,8 @@ def test_mermaid_breaks_lines_itself_and_never_passes_markup_through() -> None:
     assert "n0 -->|writes| n1" in text and "gone" not in text
     assert "linkStyle 0 stroke:#2f62a3" in text
     assert "classDef added" in text and "class n0 added" in text
+    d.add(Node("c", "uses `loop` here", "x"), "a group with `ticks`")
+    assert "`" not in d.to_mermaid()
     assert "#lt;b#gt;latest#lt;/b#gt;" in text and "#quot;the rest#quot;" in text and "| now" not in text
     assert all(len(x) <= 40 for x in re.findall(r"<b>(.*?)</b>", text)[0].split("<br/>"))  # no long unbroken line
 
@@ -95,3 +97,12 @@ def test_wrap_breaks_at_spaces_and_after_dots_not_inside_words() -> None:
         " ", ""
     ) == "src.shop.orders.dedupe responsibility to write".replace(" ", "")
     assert _wrap("supercalifragilisticexpialidocious", 10) == ["supercalifragilisticexpialidocious"]
+
+
+def test_mermaid_group_titles_keep_their_line_breaks_and_lone_boxes_stack() -> None:
+    d = Diagram()
+    for i in range(8):
+        d.add(Node(f"n{i}", f"box {i}"), "A rather long group title that has to wrap")
+    text = d.to_mermaid()
+    assert text.startswith("flowchart TB\n")
+    assert '["A rather long group title<br/>that has to wrap"]' in text and "#lt;br" not in text
