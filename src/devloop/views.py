@@ -6,6 +6,7 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from devloop.config import DEFAULT_CONTAINERS
 from devloop.facts import ComponentFacts
 from devloop.index import Opinion, Scenario, changed_fields, test_name
 
@@ -42,11 +43,14 @@ def nid(name: str) -> str:
 
 
 def short(component: str) -> str:
-    return component.split(".", 1)[-1] if "." in component else component
+    """Components are named by their location, so the id is already as short as it can be."""
+    return component
 
 
 def boundary(component: str) -> str:
     bits = component.split(".")
+    if len(bits) >= 3 and bits[0] in DEFAULT_CONTAINERS:
+        bits = bits[1:]
     return bits[1] if len(bits) >= 2 else bits[0]
 
 
@@ -134,13 +138,18 @@ def opinion_edges(ops: dict[str, Opinion], uses: bool) -> set[Edge]:
     return edges
 
 
-def fact_edges(facts: dict[str, ComponentFacts], uses: bool) -> set[Edge]:
+def fact_edges(facts: dict[str, ComponentFacts], uses: bool, files: bool = False) -> set[Edge]:
+    """Edges read from code. With files, a component that names another's data or config file gets one too."""
     edges: set[Edge] = set()
     for f in facts.values():
         edges |= {Edge(f"table:{t}", f.id, "reads") for t in f.reads}
         edges |= {Edge(f.id, f"table:{t}", "writes") for t in f.writes}
         if uses:
             edges |= {Edge(f.id, d, "uses") for d in f.imports}
+        if files:
+            for dep, paths in f.uses.items():
+                if dep != f.id and dep not in f.imports and dep in facts:
+                    edges.add(Edge(f.id, dep, "uses", ", ".join(sorted(p.rsplit("/", 1)[-1] for p in paths))))
     return edges
 
 
@@ -221,7 +230,7 @@ def draw_boundaries(nodes: dict[str, NodeInfo], edges: list[tuple[Edge, str | No
 
 def system_view(facts: dict[str, ComponentFacts], ops: dict[str, Opinion], max_nodes: int) -> str:
     nodes = {c: NodeInfo(ops.get(c), "uncertain" if ops.get(c) and ops[c].uncertain else None) for c in facts}
-    edges = fact_edges(facts, uses=True)
+    edges = fact_edges(facts, uses=True, files=True)
     for e in edges:
         for x in (e.a, e.b):
             if x.startswith("table:"):

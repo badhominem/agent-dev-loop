@@ -125,7 +125,7 @@ each run.
 truth_branch: main
 harness: copilot                 # the default is claude: change this
 worktree_root: ".loop/worktrees" # recommended for Copilot, see below
-source_roots: [src]              # or leave out to detect
+include: [src/, config/]         # folders (end with /) and files to scan; leave out to detect
 test_command: [python, -m, pytest, -q, -p, "no:warnings", tests/acceptance, "--junitxml={junit}"]
 ```
 

@@ -3,8 +3,13 @@
 truth_branch: main
 harness: claude              # claude or copilot: which tool `loop` starts agents with
 
-# Code layout. Leave source_roots out to detect it (src/ layout or top-level packages).
-# source_roots: [src]
+# What the loop looks at: folders (end with /) and single files, relative to the repo
+# root. Python files count with or without __init__.py. Data, config and other program
+# files are listed on the component that owns their folder. Leave `include` out to
+# use src/ if it exists, otherwise every top-level folder except tests and docs.
+# include: [src/, config/, scripts/, pyproject.toml]
+# exclude: ["*.lock", "fixtures"]   # extra globs to leave out
+# containers: [src, lib]            # included folders that hold packages instead of being one
 component_level: auto        # auto, package or module: what one component is
                              # auto: modules in the top package, plus one per sub-package
 
@@ -23,9 +28,9 @@ test_command: [python, -m, pytest, -q, -p, "no:warnings", tests/acceptance, "--j
 table_rules: []
 sql_tables: false            # also scan SQL strings for FROM / JOIN / INSERT INTO / UPDATE
 
-# Where each agent may write. {demand} is the claimed demand, {source} each source root.
+# Where each agent may write. {demand} is the claimed demand, {source} each included folder or file.
 # zones:
-#   builder: ["{source}/", loop/components/, "loop/demands/{demand}/build.yaml"]
+#   builder: ["{source}", loop/components/, "loop/demands/{demand}/build.yaml"]
 
 worktree_root: "../{repo}-worktrees"
 view_max_nodes: 30           # larger maps are drawn per boundary instead

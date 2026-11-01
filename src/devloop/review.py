@@ -344,7 +344,7 @@ def build_report(tree: Path, demand: str, base: str, stage: str) -> Report:
     build = read_yaml(folder / "build.yaml")
     report.decisions = list(as_strs(build.get("decisions")))
     report.assumptions = list(as_strs(build.get("assumptions")))
-    size = changed_lines(tree, base, [*conventions.source_roots, "tests"])
+    size = changed_lines(tree, base, [*conventions.include, "tests"])
     ctx = Context(before, head, planned, status, size, conventions, build, test_error)
     report.findings = [f for check in CHECKS for f in check.run(ctx)]
     merge_reviewer(report, tree / ".loop" / demand / "review.yaml")

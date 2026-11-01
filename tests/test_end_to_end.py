@@ -27,7 +27,7 @@ def test_the_whole_loop_with_a_stand_in_harness(
 
     main(["install", "--harness", "claude,copilot"])
     main(["onboard"])
-    stub = yaml.safe_load((repo / "loop/components/app.core.yaml").read_text())
+    stub = yaml.safe_load((repo / "loop/components/src.app.core.yaml").read_text())
     assert stub["uncertain"] is True and stub["boundary"] == "app"
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "loop: onboard")

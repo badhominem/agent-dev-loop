@@ -44,7 +44,7 @@ Write `loop/demands/<demand>/plan.yaml` with the planned changes to components:
 
 ```yaml
 add:
-  - id: package.module          # same id style as loop/components/
+  - id: src.package.module      # the file's location from the repo root, dotted, like loop/components/
     responsibility: One sentence
     boundary: orders              # the group it belongs to on the map
     may_depend_on: [other.component]
