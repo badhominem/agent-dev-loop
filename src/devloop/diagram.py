@@ -82,7 +82,16 @@ def _wrap(text: str, width: int = 26) -> list[str]:
 def _mm(text: str) -> str:
     """Safe inside a quoted Mermaid label: no markup, quotes or pipes of our own."""
     text = text.replace("`", "'").replace("|", "/")  # backticks would start Mermaid markdown, pipes end edge labels
-    return text.replace("&", "#amp;").replace("<", "#lt;").replace(">", "#gt;").replace('"', "#quot;")
+    for char, code in (
+        ("&", "amp"),
+        ("<", "lt"),
+        (">", "gt"),
+        ('"', "quot"),
+    ):
+        text = text.replace(char, f"#{code};")
+    for char in "_*":  # a zero-width space keeps __main__ and *x* from being read as bold or italic
+        text = text.replace(char, char + "\u200b")
+    return text
 
 
 @dataclass(frozen=True)

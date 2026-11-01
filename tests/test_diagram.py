@@ -87,6 +87,9 @@ def test_mermaid_breaks_lines_itself_and_never_passes_markup_through() -> None:
     assert "classDef added" in text and "class n0 added" in text
     d.add(Node("c", "uses `loop` here", "x"), "a group with `ticks`")
     assert "`" not in d.to_mermaid()
+    d2 = Diagram()
+    d2.add(Node("m", "src.__main__", "keeps *order_id*"))
+    assert "__" not in d2.to_mermaid() and "_\u200b_\u200bmain" in d2.to_mermaid() and "*\u200border" in d2.to_mermaid()
     assert "#lt;b#gt;latest#lt;/b#gt;" in text and "#quot;the rest#quot;" in text and "| now" not in text
     assert all(len(x) <= 40 for x in re.findall(r"<b>(.*?)</b>", text)[0].split("<br/>"))  # no long unbroken line
 
