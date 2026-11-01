@@ -39,9 +39,32 @@ def test_outputs_are_written(shop: Path) -> None:
     assert (out / "pr.md").read_text().startswith("# 0012 Dedupe orders")
     assert "mermaid" not in (out / "pr.md").read_text()
     pr = (out / "pr.md").read_text()
-    assert f"`.loop/{DEMAND}/report.html`" in pr and "section `#plan_vs_actual`" in pr
+    assert f"`{DEMAND}-report.zip`" in pr and "section `#plan_vs_actual`" in pr
     assert "**Breaks the contract:**" in pr and "Not flagged:" in pr
     assert "Findings" in (out / "report.html").read_text()
+
+
+def test_review_writes_a_zip_for_the_pr_attachment(shop: Path) -> None:
+    import zipfile
+
+    report = build_report(shop, DEMAND, "553c155", "review")
+    out = shop / ".loop" / DEMAND
+    write_outputs(report, out)
+    archive = out / f"{DEMAND}-report.zip"
+    with zipfile.ZipFile(archive) as z:
+        names = set(z.namelist())
+        assert {"report.html", "findings.yaml", "system.json", "plan_vs_actual.json"} <= names
+        assert z.read("report.html") == (out / "report.html").read_bytes()
+    assert f"`{DEMAND}-report.zip`, attached to this PR" in (out / "pr.md").read_text()
+    first = archive.read_bytes()
+    write_outputs(report, out)
+    assert archive.read_bytes() == first
+
+
+def test_stage_one_has_no_zip(shop: Path) -> None:
+    out = shop / ".loop" / DEMAND
+    write_outputs(build_report(shop, DEMAND, "553c155", "plan"), out)
+    assert not list(out.glob("*.zip"))
 
 
 def test_stage_one_views_need_no_tests(shop: Path) -> None:

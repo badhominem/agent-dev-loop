@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
+import zipfile
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -379,13 +380,34 @@ def write_outputs(report: Report, out: Path) -> None:
     if report.stage == "review":
         (out / "pr.md").write_text(pr_markdown(report), encoding="utf-8")
     (out / "report.html").write_text(report_html(report), encoding="utf-8")
+    if report.stage == "review":
+        write_zip(report, out)
+
+
+def zip_name(report: Report) -> str:
+    return f"{report.demand}-report.zip"
+
+
+def write_zip(report: Report, out: Path) -> Path:
+    """The report, its views and the findings in one file GitHub accepts as a PR attachment (it refuses .html)."""
+    target = out / zip_name(report)
+    names = ["report.html", "findings.yaml", *(f"{key}.json" for key in report.diagrams)]
+    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name in names:
+            info = zipfile.ZipInfo(
+                name, date_time=(2020, 1, 1, 0, 0, 0)
+            )  # fixed, so the same report gives the same zip
+            info.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(info, (out / name).read_bytes())
+    return target
 
 
 def pr_markdown(r: Report) -> str:
     where = f".loop/{r.demand}/report.html"
     lines = [f"# {r.title}", "", "## Why", "", r.why or "_No description in demand.md._", ""]
     lines += [
-        f"_The drawn diagrams are in `{where}`, made by `loop review` and not committed. "
+        f"_The drawn diagrams are in `{zip_name(r)}`, attached to this PR (unzip it and open `report.html`). "
+        f"They are also in `{where}` in the worktree, which is not committed. "
         "This page summarises each one in text and says which section to open._",
         "",
     ]
@@ -394,7 +416,7 @@ def pr_markdown(r: Report) -> str:
             lines += [
                 f"## {VIEW_NAMES[key]}",
                 "",
-                f"Diagram: **{VIEW_NAMES[key]}** in `{where}` (section `#{key}`; the same data is in `{key}.json`).",
+                f"Diagram: **{VIEW_NAMES[key]}**, section `#{key}` of `report.html` (data: `{key}.json`).",
                 "",
                 r.captions.get(key, ""),
                 "",
