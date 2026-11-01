@@ -1,4 +1,4 @@
-"""The six views, drawn as Mermaid by code from the indexes (P3). No AI here."""
+"""The six views, drawn as HTML diagrams by code from the indexes (P3). No AI here."""
 
 from __future__ import annotations
 
@@ -7,35 +7,9 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from devloop.config import DEFAULT_CONTAINERS
+from devloop.diagram import Diagram, Node
 from devloop.facts import ComponentFacts
 from devloop.index import Opinion, Scenario, changed_fields, test_name
-
-INIT = (
-    "%%{init: {'theme':'base','themeVariables':{'primaryColor':'#ffffff','primaryBorderColor':'#7d8584',"
-    "'primaryTextColor':'#16202a','lineColor':'#5d6b68','clusterBkg':'#f1f4f3','clusterBorder':'#c9d3d0',"
-    "'edgeLabelBackground':'#ffffff','fontFamily':'system-ui, -apple-system, Segoe UI, Roboto, sans-serif'}}}%%"
-)
-
-NODE_STYLE = {
-    "added": "fill:#dce9f7,stroke:#2f62a3,color:#16202a",
-    "changed": "fill:#f6ebdd,stroke:#a8641f,color:#16202a",
-    "removed": "fill:#eceeee,stroke:#7d8584,color:#5a6261,stroke-dasharray:4 3",
-    "missing": "fill:#ffffff,stroke:#2f62a3,color:#16202a,stroke-dasharray:4 3",
-    "unplanned": "fill:#ece5f7,stroke:#6a4fa3,color:#16202a",
-    "broken": "fill:#f7dede,stroke:#b53a3a,color:#16202a,stroke-width:3px",
-    "uncertain": "fill:#fffbe8,stroke:#a8641f,color:#16202a,stroke-dasharray:2 2",
-    "passing": "fill:#dceee3,stroke:#2f7a4f,color:#16202a",
-    "failing": "fill:#f7dede,stroke:#b53a3a,color:#16202a",
-    "uncovered": "fill:#ffffff,stroke:#a8641f,color:#16202a,stroke-dasharray:4 3",
-}
-EDGE_STYLE = {
-    "added": "stroke:#2f62a3,stroke-width:2.5px",
-    "removed": "stroke:#7d8584,stroke-width:1.5px,stroke-dasharray:4 3",
-    "missing": "stroke:#2f62a3,stroke-width:2px,stroke-dasharray:4 3",
-    "unplanned": "stroke:#6a4fa3,stroke-width:2.5px",
-    "broken": "stroke:#b53a3a,stroke-width:3px",
-    "uses": "stroke:#9aa5a3,stroke-width:1px",
-}
 
 
 def nid(name: str) -> str:
@@ -59,42 +33,6 @@ def group_for(component: str, opinion: Opinion | None) -> str:
     return opinion.boundary if opinion is not None and opinion.boundary else boundary(component)
 
 
-def clean(text: str) -> str:
-    """Keep labels safe inside Mermaid's quoted strings."""
-    return text.replace('"', "'").replace("|", "/")
-
-
-class Diagram:
-    def __init__(self, direction: str = "TB") -> None:
-        self._lines = [INIT, f"flowchart {direction}"]
-        self._edges = 0
-        self._edge_styles: list[str] = []
-        self._classes: dict[str, list[str]] = {}
-
-    def line(self, text: str) -> None:
-        self._lines.append("  " + text)
-
-    def node(self, node_id: str, label: str, kind: str | None = None, table: bool = False) -> None:
-        text = clean(label)
-        self.line(f'{node_id}[("{text}")]' if table else f'{node_id}["{text}"]')
-        if kind:
-            self._classes.setdefault(kind, []).append(node_id)
-
-    def edge(self, a: str, b: str, label: str = "", kind: str | None = None, dotted: bool = False) -> None:
-        arrow = "-.->" if dotted else "-->"
-        self.line(f"{a} {arrow}|{clean(label)}| {b}" if label else f"{a} {arrow} {b}")
-        if kind:
-            self._edge_styles.append(f"linkStyle {self._edges} {EDGE_STYLE[kind]}")
-        self._edges += 1
-
-    def render(self) -> str:
-        out = [*self._lines, *("  " + s for s in self._edge_styles)]
-        for kind, ids in sorted(self._classes.items()):
-            out.append(f"  classDef {kind} {NODE_STYLE[kind]}")
-            out.append(f"  class {','.join(ids)} {kind}")
-        return "\n".join(out) + "\n"
-
-
 @dataclass(frozen=True)
 class Edge:
     a: str
@@ -110,17 +48,14 @@ class NodeInfo:
     note: str = ""
 
 
-def label(comp: str, opinion: Opinion | None, note: str = "") -> str:
-    parts = [f"<b>{short(comp)}</b>"]
+def node_for(comp: str, opinion: Opinion | None, kind: str | None = None, note: str = "", node_id: str = "") -> Node:
+    body = ""
     if opinion and opinion.responsibility:
-        parts.append(opinion.responsibility)
+        body = opinion.responsibility
     elif opinion is not None:
-        parts.append("<small>responsibility to write</small>")
-    if opinion and opinion.key_items:
-        parts.append("<i>" + " · ".join(opinion.key_items[:4]) + "</i>")
-    if note:
-        parts.append(note)
-    return "<br/>".join(parts)
+        body = "responsibility to write"
+    items = " · ".join(opinion.key_items[:4]) if opinion and opinion.key_items else ""
+    return Node(node_id or nid(comp), short(comp), body, items, note, kind)
 
 
 def tagged(edges: Iterable[Edge], kind: str | None) -> list[tuple[Edge, str | None]]:
@@ -169,33 +104,29 @@ def scope(
 
 def draw(
     nodes: dict[str, NodeInfo], edges: Iterable[tuple[Edge, str | None]], max_nodes: int, direction: str = "TB"
-) -> str:
+) -> Diagram:
     comps = sorted(n for n in nodes if not n.startswith("table:"))
     if len(comps) > max_nodes:
         return draw_boundaries(nodes, list(edges))
-    d = Diagram(direction)
-    groups = {c: group_for(c, nodes[c].opinion) for c in comps}
-    for group in sorted(set(groups.values())):
-        d.line(f'subgraph {nid("b_" + group)}["{group}"]')
-        for c in (c for c in comps if groups[c] == group):
-            info = nodes[c]
-            d.node(nid(c), label(c, info.opinion, info.note), info.kind)
-        d.line("end")
+    d = Diagram()
+    for c in comps:
+        info = nodes[c]
+        d.add(node_for(c, info.opinion, info.kind, info.note), group_for(c, info.opinion))
     for t in sorted(n for n in nodes if n.startswith("table:")):
         info = nodes[t]
         name = t.removeprefix("table:")
-        d.node(nid(t), f"{name}<br/>{info.note}" if info.note else name, info.kind, table=True)
+        d.add(Node(nid(t), name, note=info.note, kind=info.kind, shape="table"), "Tables")
     order = {"writes": 0, "reads": 1, "flow": 2, "uses": 3}
     for e, kind in sorted(edges, key=lambda x: (order[x[0].kind], x[0].a, x[0].b, x[1] or "")):
         if e.a in nodes and e.b in nodes:
             style = kind or ("uses" if e.kind == "uses" else None)
-            d.edge(nid(e.a), nid(e.b), e.what, style, dotted=e.kind == "uses" and kind != "broken")
-    return d.render()
+            d.link(nid(e.a), nid(e.b), e.what, style, dotted=e.kind == "uses" and kind != "broken")
+    return d
 
 
-def draw_boundaries(nodes: dict[str, NodeInfo], edges: list[tuple[Edge, str | None]]) -> str:
+def draw_boundaries(nodes: dict[str, NodeInfo], edges: list[tuple[Edge, str | None]]) -> Diagram:
     """Too many components to read: one box per boundary, with counts."""
-    d = Diagram("LR")
+    d = Diagram()
     groups: dict[str, list[str]] = {}
     for c in (n for n in nodes if not n.startswith("table:")):
         groups.setdefault(group_for(c, nodes[c].opinion), []).append(c)
@@ -211,8 +142,7 @@ def draw_boundaries(nodes: dict[str, NodeInfo], edges: list[tuple[Edge, str | No
             if drafts
             else ""
         )
-        note = count + extra
-        d.node(nid("g_" + group), f"<b>{group}</b><br/><small>{note}</small>", kind)
+        d.add(Node(nid("g_" + group), group, note=count + extra, kind=kind))
     links: dict[tuple[str, str], bool] = {}
     for e, k in edges:
         if e.kind == "uses" and not e.a.startswith("table:") and not e.b.startswith("table:"):
@@ -221,14 +151,14 @@ def draw_boundaries(nodes: dict[str, NodeInfo], edges: list[tuple[Edge, str | No
             if ga != gb:
                 links[(ga, gb)] = links.get((ga, gb), False) or k == "broken"
     for (ga, gb), broken in sorted(links.items()):
-        d.edge(nid("g_" + ga), nid("g_" + gb), "", "broken" if broken else "uses", dotted=not broken)
-    return d.render()
+        d.link(nid("g_" + ga), nid("g_" + gb), "", "broken" if broken else "uses", dotted=not broken)
+    return d
 
 
 # ---------------------------------------------------------------- the six views
 
 
-def system_view(facts: dict[str, ComponentFacts], ops: dict[str, Opinion], max_nodes: int) -> str:
+def system_view(facts: dict[str, ComponentFacts], ops: dict[str, Opinion], max_nodes: int) -> Diagram:
     nodes = {c: NodeInfo(ops.get(c), "uncertain" if ops.get(c) and ops[c].uncertain else None) for c in facts}
     edges = fact_edges(facts, uses=True, files=True)
     for e in edges:
@@ -240,7 +170,7 @@ def system_view(facts: dict[str, ComponentFacts], ops: dict[str, Opinion], max_n
 
 def change_view(
     before: dict[str, Opinion], planned: dict[str, Opinion], max_nodes: int, data_only: bool = False
-) -> tuple[str, dict[str, list[str]]]:
+) -> tuple[Diagram, dict[str, list[str]]]:
     nodes: dict[str, NodeInfo] = {}
     summary: dict[str, list[str]] = {
         "added": [],
@@ -258,9 +188,7 @@ def change_view(
             summary["removed"].append(short(c))
         else:
             diff = changed_fields(before[c], planned[c])
-            nodes[c] = NodeInfo(
-                planned[c], "changed" if diff else None, f"<small>changes: {', '.join(diff)}</small>" if diff else ""
-            )
+            nodes[c] = NodeInfo(planned[c], "changed" if diff else None, f"changes: {', '.join(diff)}" if diff else "")
             if diff:
                 summary["changed"].append(short(c))
     b_e, a_e = opinion_edges(before, not data_only), opinion_edges(planned, not data_only)
@@ -285,14 +213,13 @@ def change_view(
 
 def behaviour_view(
     before: dict[str, Scenario], after: dict[str, Scenario], results: dict[str, str], only_changed: bool
-) -> tuple[str, dict[str, str]]:
+) -> tuple[Diagram, dict[str, str]]:
     status: dict[str, str] = {}
-    d = Diagram("TB")
+    d = Diagram(ordered=True)
     ids = sorted(set(before) | set(after))
     if only_changed:
         ids = [i for i in ids if i not in before or i not in after or before[i].body != after[i].body]
     for feature in sorted({(after.get(i) or before[i]).feature for i in ids}):
-        d.line(f'subgraph {nid("f_" + feature)}["{clean(feature)}"]')
         for sid in ids:
             s = after.get(sid) or before[sid]
             if s.feature != feature:
@@ -303,20 +230,19 @@ def behaviour_view(
                 change = "new" if sid not in before else "changed" if before[sid].body != s.body else "unchanged"
                 kind = results.get(test_name(s.name), "uncovered")
                 status[sid] = kind
-            d.node(nid(sid), f"<b>{sid}</b><br/>{s.name}<br/><small>{change} · {kind}</small>", kind)
-        d.line("end")
-    return d.render(), status
+            d.add(Node(nid(sid), sid, s.name, note=f"{change} · {kind}", kind=kind), feature)
+    return d, status
 
 
 def plan_vs_actual_view(
     planned: dict[str, Opinion], head_ops: dict[str, Opinion], head: dict[str, ComponentFacts], max_nodes: int
-) -> tuple[str, list[Edge]]:
+) -> tuple[Diagram, list[Edge]]:
     nodes: dict[str, NodeInfo] = {}
     for c in sorted(set(planned) | set(head)):
         if c not in head:
-            nodes[c] = NodeInfo(planned[c], "missing", "<small>planned, not built</small>")
+            nodes[c] = NodeInfo(planned[c], "missing", "planned, not built")
         elif c not in planned:
-            nodes[c] = NodeInfo(head_ops.get(c), "unplanned", "<small>built, not planned</small>")
+            nodes[c] = NodeInfo(head_ops.get(c), "unplanned", "built, not planned")
         else:
             nodes[c] = NodeInfo(head_ops.get(c) or planned[c])
     p_e, a_e = opinion_edges(planned, False), fact_edges(head, False)
@@ -340,25 +266,18 @@ def plan_vs_actual_view(
 
 def contract_break_view(
     e: Edge, before_facts: dict[str, ComponentFacts], before_ops: dict[str, Opinion], planned: dict[str, Opinion]
-) -> str:
-    d = Diagram("LR")
+) -> Diagram:
+    d = Diagram(ordered=True)
     for stage in ("Before", "Planned", "Actual"):
-        d.line(f'subgraph {stage}["{stage}"]')
-        d.line("direction TB")
         a_id, b_id = nid(f"{stage}_{e.a}"), nid(f"{stage}_{e.b}")
         if stage == "Before" and e.a not in before_facts:
-            d.node(a_id, f"<b>{short(e.a)}</b><br/><small>doesn't exist yet</small>", "removed")
+            d.add(Node(a_id, short(e.a), note="doesn't exist yet", kind="removed"), stage)
         else:
-            d.node(
-                a_id,
-                label(e.a, planned.get(e.a) if stage != "Before" else before_ops.get(e.a)),
-                "broken" if stage == "Actual" else None,
-            )
-        d.node(b_id, label(e.b, before_ops.get(e.b) or planned.get(e.b)))
-        d.line("end")
+            opinion = planned.get(e.a) if stage != "Before" else before_ops.get(e.a)
+            d.add(node_for(e.a, opinion, "broken" if stage == "Actual" else None, node_id=a_id), stage)
+        d.add(node_for(e.b, before_ops.get(e.b) or planned.get(e.b), node_id=b_id), stage)
     if e.b in (before_facts[e.a].imports if e.a in before_facts else {}):
-        d.edge(nid(f"Before_{e.a}"), nid(f"Before_{e.b}"), "already used", None)
-    d.edge(nid(f"Planned_{e.a}"), nid(f"Planned_{e.b}"), "not allowed", "removed", dotted=True)
-    d.edge(nid(f"Actual_{e.a}"), nid(f"Actual_{e.b}"), e.what, "broken")
-    d.line("Before ~~~ Planned ~~~ Actual")
-    return d.render()
+        d.link(nid(f"Before_{e.a}"), nid(f"Before_{e.b}"), "already used", None)
+    d.link(nid(f"Planned_{e.a}"), nid(f"Planned_{e.b}"), "not allowed", "removed", dotted=True)
+    d.link(nid(f"Actual_{e.a}"), nid(f"Actual_{e.b}"), e.what, "broken")
+    return d

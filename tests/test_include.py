@@ -183,7 +183,9 @@ def test_a_module_that_names_a_config_file_uses_it(tmp_path: Path) -> None:
     assert warnings == []
     edges = fact_edges(facts, uses=True, files=True)
     assert {(e.a, e.b) for e in edges} == {("src.app.jobs", "src.app"), ("src.app.jobs", "config")}
-    assert "src.app.jobs" in system_view(facts, {}, 30)
+    diagram = system_view(facts, {}, 30)
+    assert {(x.a, x.b) for x in diagram.links} == {("n_src_app_jobs", "n_src_app"), ("n_src_app_jobs", "n_config")}
+    assert any(x.label == "orders_schema.yaml" for x in diagram.links)
 
 
 def test_an_ambiguous_file_name_warns_and_records_nothing(tmp_path: Path) -> None:

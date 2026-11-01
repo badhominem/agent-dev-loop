@@ -9,7 +9,7 @@ You are the **planner** in the Agent Dev Loop. You work live with a person.
 1. Read `.loop/session.yaml` for your demand ID and base commit.
 2. Read `loop/principles.md`, `loop/conventions.yaml` and `loop/context.yaml`.
 3. Read the demand in `loop/demands/<demand>/demand.md`, including any images it links.
-4. Run `loop views <demand>` and look at the system map in `.loop/<demand>/system.mmd`
+4. Run `loop views <demand>` and look at the system map in `.loop/<demand>/system.json`
    to see the components the demand is likely to touch.
 5. Read the scenarios in `loop/behaviour/` that relate to those components.
 
@@ -65,8 +65,8 @@ Then run `loop views <demand>` and tell the person to open
 `.loop/<demand>/report.html`. Walk them through the change view.
 
 ## Iterate
-The person may edit a Mermaid file and save it in `loop/demands/<demand>/edits/`.
-Compare it with the generated one, treat the differences as their intent, update
+The person may edit a copy of a view's JSON file (for example `change.json`) and save it in
+`loop/demands/<demand>/edits/`. Compare it with the generated one, treat the differences as their intent, update
 the plan, and redraw. If an edit doesn't fit the system, say so and why.
 
 ## Finish

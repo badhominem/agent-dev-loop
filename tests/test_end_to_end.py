@@ -44,7 +44,7 @@ def test_the_whole_loop_with_a_stand_in_harness(
     pr = (report / "pr.md").read_text()
     assert "The greeting was built as planned." in pr
     assert "Used an f-string" in pr
-    assert "greeting-01" in (report / "behaviour.mmd").read_text()
+    assert "greeting-01" in (report / "behaviour.json").read_text()
     log = git(worktree, "log", "--format=%s", "-6")
     assert "outside-test-writer" in log and "builder" in log
     assert os.path.exists(report / "report.html")

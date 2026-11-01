@@ -111,7 +111,7 @@ optionally, `sql_tables: true` for SQL strings.
 
 ## Status and limits of 0.1
 
-Tested here: 57 automated tests, including a full loop run with a stand-in harness,
+Tested here: 63 automated tests, including a full loop run with a stand-in harness,
 the guard against both Claude and Copilot payload formats, and onboarding of two
 real open-source packages. `ruff` and `mypy --strict` pass.
 

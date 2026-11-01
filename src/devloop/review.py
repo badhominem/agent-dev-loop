@@ -7,6 +7,7 @@ and its own findings in .loop/<demand>/review.yaml; those are merged in.
 from __future__ import annotations
 
 import html
+import json
 import shutil
 import subprocess
 import tempfile
@@ -18,6 +19,7 @@ from pathlib import Path
 import yaml
 
 from devloop.config import Conventions, as_dict, as_list, as_strs, git, read_yaml
+from devloop.diagram import EDGE_STYLES, Diagram
 from devloop.facts import ComponentFacts, FactExtractor
 from devloop.index import Opinion, Scenario, apply_plan, load_opinions, load_scenarios
 from devloop.views import (
@@ -240,7 +242,7 @@ class Report:
     why: str
     base: str
     head: str
-    mermaid: dict[str, str] = field(default_factory=dict)
+    diagrams: dict[str, Diagram] = field(default_factory=dict)
     captions: dict[str, str] = field(default_factory=dict)
     findings: list[Finding] = field(default_factory=list)
     decisions: list[str] = field(default_factory=list)
@@ -283,13 +285,13 @@ def build_report(tree: Path, demand: str, base: str, stage: str) -> Report:
     report = Report(demand, title, why, base, git(tree, "rev-parse", "--short", "HEAD"), stage=stage)
     max_nodes = conventions.view_max_nodes
 
-    report.mermaid["system"] = system_view(before.facts, before.opinions, max_nodes)
+    report.diagrams["system"] = system_view(before.facts, before.opinions, max_nodes)
     report.captions["system"] = (
         f"The repo at base {base}: {len(before.facts)} components and the tables "
         "they touch. Grey dotted arrows show which component uses which."
     )
     change, summary = change_view(before.opinions, planned, max_nodes)
-    report.mermaid["change"] = change
+    report.diagrams["change"] = change
     report.captions["change"] = (
         "Planned: " + "; ".join(f"{k} {', '.join(v)}" for k, v in summary.items() if v) + "."
         if any(summary.values())
@@ -304,7 +306,7 @@ def build_report(tree: Path, demand: str, base: str, stage: str) -> Report:
             for c, o in planned.items()
         )
     ):
-        report.mermaid["data"], _ = change_view(before.opinions, planned, max_nodes, data_only=True)
+        report.diagrams["data"], _ = change_view(before.opinions, planned, max_nodes, data_only=True)
         report.captions["data"] = "Only the tables this demand touches, and which components read or write them."
 
     results: dict[str, str] = {}
@@ -312,7 +314,7 @@ def build_report(tree: Path, demand: str, base: str, stage: str) -> Report:
     if stage == "review":
         results, test_error = run_tests(tree, conventions)
     behaviour, status = behaviour_view(before.scenarios, head.scenarios, results, only_changed=True)
-    report.mermaid["behaviour"] = behaviour
+    report.diagrams["behaviour"] = behaviour
     counts = {k: sum(v == k for v in status.values()) for k in ("passing", "failing", "uncovered")}
     report.captions["behaviour"] = (
         f"Scenarios this demand adds, changes or retires: {counts['passing']} passing, "
@@ -326,14 +328,14 @@ def build_report(tree: Path, demand: str, base: str, stage: str) -> Report:
         return report
 
     pva, breaks = plan_vs_actual_view(planned, head.opinions, head.facts, max_nodes)
-    report.mermaid["plan_vs_actual"] = pva
+    report.diagrams["plan_vs_actual"] = pva
     report.captions["plan_vs_actual"] = (
         "Black: built as planned. Purple: built but not planned. "
         "Dashed blue: planned but not built. Red: breaks the approved contract."
     )
     if breaks:
         e: Edge = breaks[0]
-        report.mermaid["contract_break"] = contract_break_view(e, before.facts, before.opinions, planned)
+        report.diagrams["contract_break"] = contract_break_view(e, before.facts, before.opinions, planned)
         allowed = ", ".join(short(x) for x in planned[e.a].may_depend_on) if e.a in planned else "nothing"
         report.captions["contract_break"] = (
             f"{short(e.a)} was approved to depend on {allowed}. The build makes "
@@ -355,7 +357,7 @@ def merge_reviewer(report: Report, path: Path) -> None:
     """Add the reviewer agent's captions and findings, if it has written any."""
     data = read_yaml(path)
     for key, text in as_dict(data.get("captions")).items():
-        if key in report.mermaid and str(text).strip():
+        if key in report.diagrams and str(text).strip():
             report.captions[key] = str(text).strip()
     for item in (as_dict(x) for x in as_list(data.get("findings")) if isinstance(x, dict)):
         outcome = str(item.get("outcome", "back"))
@@ -368,8 +370,8 @@ def merge_reviewer(report: Report, path: Path) -> None:
 
 def write_outputs(report: Report, out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
-    for key, text in report.mermaid.items():
-        (out / f"{key}.mmd").write_text(text, encoding="utf-8")
+    for key, diagram in report.diagrams.items():
+        (out / f"{key}.json").write_text(diagram.to_json(), encoding="utf-8")
     findings = [{"outcome": f.outcome, "text": f.text} for f in report.findings]
     (out / "findings.yaml").write_text(
         yaml.safe_dump({"verdict": report.verdict(), "findings": findings}, sort_keys=False), encoding="utf-8"
@@ -382,15 +384,13 @@ def write_outputs(report: Report, out: Path) -> None:
 def pr_markdown(r: Report) -> str:
     lines = [f"# {r.title}", "", "## Why", "", r.why or "_No description in demand.md._", ""]
     for key in ("plan_vs_actual", "behaviour", "data"):
-        if key in r.mermaid:
+        if key in r.diagrams:
             lines += [
                 f"## {VIEW_NAMES[key]}",
                 "",
                 r.captions.get(key, ""),
                 "",
-                "```mermaid",
-                r.mermaid[key].rstrip(),
-                "```",
+                r.diagrams[key].to_markdown().rstrip(),
                 "",
             ]
     lines += ["## Findings", ""]
@@ -429,14 +429,14 @@ def report_html(r: Report) -> str:
             )
             links.append('<a href="#findings">Findings</a>')
             continue
-        if key not in r.mermaid:
+        if key not in r.diagrams:
             continue
         links.append(f'<a href="#{key}">{VIEW_NAMES[key]}</a>')
         sections.append(
             f'<section class="view" id="{key}"><header><h2>{VIEW_NAMES[key]}</h2>'
             f'<span class="when">{VIEW_WHEN[key]}</span></header>'
             f'<p class="cap">{html.escape(r.captions.get(key, ""))}</p>'
-            f'<div class="diagram"><pre class="mermaid">{html.escape(r.mermaid[key])}</pre></div></section>'
+            f'<div class="diagram">{r.diagrams[key].to_html()}</div></section>'
         )
     page = (TEMPLATES / "report.html").read_text(encoding="utf-8")
     return (
@@ -445,6 +445,7 @@ def report_html(r: Report) -> str:
         .replace("{{meta}}", f"{html.escape(r.demand)} · base {r.base} · head {r.head} · {r.stage}")
         .replace("{{nav}}", "".join(links))
         .replace("{{sections}}", "\n".join(sections))
+        .replace("{{edge_styles}}", json.dumps(EDGE_STYLES))
     )
 
 
@@ -459,7 +460,7 @@ def onboard_report(repo: Path) -> Report:
         git(repo, "rev-parse", "--short", "HEAD"),
         stage="onboard",
     )
-    report.mermaid["system"] = system_view(state.facts, state.opinions, conventions.view_max_nodes)
+    report.diagrams["system"] = system_view(state.facts, state.opinions, conventions.view_max_nodes)
     report.captions["system"] = (
         f"{len(state.facts)} components. Dotted yellow: responsibility and boundaries are drafts to confirm."
     )

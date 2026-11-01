@@ -29,7 +29,7 @@ def test_review_finds_every_planted_problem(shop: Path) -> None:
     assert any(o == "stop" and "src.shop.orders.ingest writes stg.orders" in t for o, t in texts)
     assert any(o == "carry_on" and "_key" in t for o, t in texts)
     assert report.verdict() == "stop"
-    assert set(report.mermaid) == {"system", "change", "data", "behaviour", "plan_vs_actual", "contract_break"}
+    assert set(report.diagrams) == {"system", "change", "data", "behaviour", "plan_vs_actual", "contract_break"}
 
 
 def test_outputs_are_written(shop: Path) -> None:
@@ -37,13 +37,14 @@ def test_outputs_are_written(shop: Path) -> None:
     out = shop / ".loop" / DEMAND
     write_outputs(report, out)
     assert (out / "pr.md").read_text().startswith("# 0012 Dedupe orders")
-    assert "```mermaid" in (out / "pr.md").read_text()
+    assert "mermaid" not in (out / "pr.md").read_text()
+    assert "**Connections**" in (out / "pr.md").read_text()
     assert "Findings" in (out / "report.html").read_text()
 
 
 def test_stage_one_views_need_no_tests(shop: Path) -> None:
     report = build_report(shop, DEMAND, "553c155", "plan")
-    assert "plan_vs_actual" not in report.mermaid
+    assert "plan_vs_actual" not in report.diagrams
     assert report.findings == []
 
 
