@@ -38,7 +38,9 @@ def test_outputs_are_written(shop: Path) -> None:
     write_outputs(report, out)
     assert (out / "pr.md").read_text().startswith("# 0012 Dedupe orders")
     assert "mermaid" not in (out / "pr.md").read_text()
-    assert "**Connections**" in (out / "pr.md").read_text()
+    pr = (out / "pr.md").read_text()
+    assert f"`.loop/{DEMAND}/report.html`" in pr and "section `#plan_vs_actual`" in pr
+    assert "**Breaks the contract:**" in pr and "Not flagged:" in pr
     assert "Findings" in (out / "report.html").read_text()
 
 

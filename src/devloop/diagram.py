@@ -27,6 +27,28 @@ EDGE_STYLES: dict[str, dict[str, object]] = {
 }
 
 
+# How flagged boxes and arrows are named in text summaries, in the order they are listed.
+KIND_WORDS = {
+    "broken": "Breaks the approved contract",
+    "failing": "Failing",
+    "unplanned": "Built, not planned",
+    "missing": "Planned, not built",
+    "added": "Added",
+    "changed": "Changed",
+    "removed": "Removed",
+    "uncovered": "No test yet",
+    "passing": "Passing",
+    "uncertain": "Draft to confirm",
+}
+LINK_WORDS = {
+    "broken": "Breaks the contract",
+    "unplanned": "Built, not planned",
+    "missing": "Planned, not built",
+    "added": "New connection",
+    "removed": "Connection removed",
+}
+
+
 @dataclass(frozen=True)
 class Node:
     id: str
@@ -191,21 +213,26 @@ class Diagram:
         return f'<div class="node{shape}{kind}" data-id="{html.escape(n.id, quote=True)}" tabindex="0">{inner}</div>'
 
     def to_markdown(self) -> str:
-        """A plain outline, for places that can't draw HTML (a pull request description)."""
+        """A text summary for places that can't draw HTML (a pull request): what is flagged, then the rest counted."""
         lines: list[str] = []
-        for g in self._layout():
-            if g.title is not None:
-                lines.append(f"**{g.title}**")
-            for n in g.nodes:
-                tag = f" _({n.kind})_" if n.kind else ""
-                detail = " — ".join(x for x in (n.body, n.note) if x)
-                lines.append(f"- `{n.title}`{tag}" + (f": {detail}" if detail else ""))
-            lines.append("")
-        if self.links:
-            lines.append("**Connections**")
-            for x in self.links:
-                tag = f" _({x.kind})_" if x.kind else ""
-                lines.append(
-                    f"- `{self._label(x.a)}` → `{self._label(x.b)}`" + (f" {x.label}" if x.label else "") + tag
-                )
-        return "\n".join(lines).rstrip() + "\n"
+        for kind, words in KIND_WORDS.items():
+            flagged = [n for g in self._layout() for n in g.nodes if n.kind == kind]
+            if flagged:
+                lines.append(f"- **{words}:**")
+                for n in flagged:
+                    detail = " — ".join(x for x in (n.body, n.note) if x)
+                    lines.append(f"  - `{n.title}`" + (f": {detail}" if detail else ""))
+        for kind, words in LINK_WORDS.items():
+            for x in (link for link in self.links if link.kind == kind):
+                label = f" ({x.label})" if x.label else ""
+                lines.append(f"- **{words}:** `{self._label(x.a)}` → `{self._label(x.b)}`{label}")
+        plain_nodes = sum(1 for n in self.nodes() if n.kind is None)
+        plain_links = sum(1 for x in self.links if x.kind in (None, "uses"))
+        rest = []
+        if plain_nodes:
+            rest.append(f"{plain_nodes} unchanged {'box' if plain_nodes == 1 else 'boxes'}")
+        if plain_links:
+            rest.append(f"{plain_links} ordinary {'connection' if plain_links == 1 else 'connections'}")
+        if rest:
+            lines.append(f"- Not flagged: {' and '.join(rest)}.")
+        return "\n".join(lines or ["- Nothing to show."]) + "\n"

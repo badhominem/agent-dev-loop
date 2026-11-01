@@ -57,7 +57,11 @@ def test_json_and_markdown_outputs() -> None:
     data = json.loads(d.to_json())
     assert data["groups"][0]["nodes"][0] == {"id": "a", "title": "alpha", "body": "does things", "kind": "added"}
     assert data["links"] == [{"a": "a", "b": "b", "label": "calls", "kind": "added"}]
+    d.add(Node("c", "gamma"), "g")
+    d.link("b", "c")
     md = d.to_markdown()
-    assert "- `alpha` _(added)_: does things" in md
-    assert "- `alpha` → `beta` calls _(added)_" in md
+    assert "- **Added:**\n  - `alpha`: does things" in md
+    assert "- **New connection:** `alpha` → `beta` (calls)" in md
+    assert "- Not flagged: 2 unchanged boxes and 1 ordinary connection." in md
     assert "mermaid" not in md
+    assert Diagram().to_markdown() == "- Nothing to show.\n"

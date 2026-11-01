@@ -382,16 +382,23 @@ def write_outputs(report: Report, out: Path) -> None:
 
 
 def pr_markdown(r: Report) -> str:
+    where = f".loop/{r.demand}/report.html"
     lines = [f"# {r.title}", "", "## Why", "", r.why or "_No description in demand.md._", ""]
-    for key in ("plan_vs_actual", "behaviour", "data"):
+    lines += [
+        f"_The drawn diagrams are in `{where}`, made by `loop review` and not committed. "
+        "This page summarises each one in text and says which section to open._",
+        "",
+    ]
+    for key in ("plan_vs_actual", "contract_break", "behaviour", "data"):
         if key in r.diagrams:
             lines += [
                 f"## {VIEW_NAMES[key]}",
                 "",
+                f"Diagram: **{VIEW_NAMES[key]}** in `{where}` (section `#{key}`; the same data is in `{key}.json`).",
+                "",
                 r.captions.get(key, ""),
                 "",
-                r.diagrams[key].to_markdown().rstrip(),
-                "",
+                *([] if key == "contract_break" else [r.diagrams[key].to_markdown().rstrip(), ""]),
             ]
     lines += ["## Findings", ""]
     for code, title in OUTCOMES:
