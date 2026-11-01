@@ -32,12 +32,12 @@ nav a:focus-visible,nav a:hover{border-color:var(--fg)}
 /* Diagrams are plain HTML: groups of boxes laid out by CSS, arrows drawn on top by the script below */
 .dg{position:relative;isolation:isolate;font-family:var(--body)}
 .dg-body{display:flex;flex-wrap:wrap;gap:20px 64px;align-items:flex-start}
-.grp{background:rgba(201,211,208,.28);border:1px solid #c9d3d0;border-radius:8px;padding:8px 10px 12px;max-width:100%}
+.grp{background:rgba(201,211,208,.28);border:1px solid #c9d3d0;border-radius:8px;padding:8px 10px 12px;flex:none}
 .grp.flat{background:none;border:0;padding:0}
 .grp h3{margin:0 0 10px;font-family:var(--mono);font-weight:500;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:#5d6b68;overflow-wrap:anywhere}
-.nodes{display:flex;flex-direction:column;gap:26px}
-.grp.flat .nodes{flex-direction:row;flex-wrap:wrap;gap:20px 64px}
-.node{position:relative;z-index:2;box-sizing:border-box;width:232px;max-width:100%;display:flex;flex-direction:column;gap:3px;background:#fff;border:1.5px solid #7d8584;border-radius:6px;padding:7px 10px;font-size:.82rem;line-height:1.35;overflow-wrap:break-word;transition:opacity .12s}
+.nodes{display:flex;flex-direction:row;align-items:flex-start;gap:52px}
+.col{display:flex;flex-direction:column;gap:22px}
+.node{position:relative;z-index:2;box-sizing:border-box;width:216px;max-width:100%;display:flex;flex-direction:column;gap:3px;background:#fff;border:1.5px solid #7d8584;border-radius:6px;padding:7px 10px;font-size:.82rem;line-height:1.35;overflow-wrap:break-word;transition:opacity .12s}
 .node .t{font-weight:600;font-size:.84rem}
 .node .i{font-style:italic;color:#5d6b68}
 .node .n{font-size:.74rem;color:#5d6b68}
@@ -114,7 +114,21 @@ nav a:focus-visible,nav a:hover{border-color:var(--fg)}
     if (side === "b") return [n.x + n.w * f, n.y + n.h];
     return [n.x + n.w * f, n.y];
   }
+  // A wide diagram is shrunk to fit its frame, down to 70%; beyond that the frame scrolls sideways.
+  function fit(dg) {
+    dg.style.transform = "";
+    dg.style.marginBottom = "";
+    var s = 1;
+    if (dg.scrollWidth > dg.clientWidth + 2) s = Math.max(0.7, dg.clientWidth / dg.scrollWidth);
+    if (s < 1) {
+      dg.style.transformOrigin = "0 0";
+      dg.style.transform = "scale(" + s + ")";
+      dg.style.marginBottom = dg.offsetHeight * (s - 1) + "px";
+    }
+    return s;
+  }
   function draw(dg, uid) {
+    var scale = fit(dg);
     var svg = dg.querySelector(".dg-edges");
     var links = JSON.parse(dg.dataset.links || "[]");
     svg.replaceChildren();
@@ -122,12 +136,12 @@ nav a:focus-visible,nav a:hover{border-color:var(--fg)}
     if (!links.length) return;
     var o = dg.getBoundingClientRect();
     var h = dg.querySelector(".dg-body").offsetHeight;
-    svg.setAttribute("width", dg.offsetWidth);
+    svg.setAttribute("width", dg.scrollWidth);
     svg.setAttribute("height", h);
     var nodes = {};
     dg.querySelectorAll(".node").forEach(function (n) {
       var r = n.getBoundingClientRect();
-      nodes[n.dataset.id] = { x: r.left - o.left, y: r.top - o.top, w: r.width, h: r.height };
+      nodes[n.dataset.id] = { x: (r.left - o.left) / scale, y: (r.top - o.top) / scale, w: r.width / scale, h: r.height / scale };
     });
     var defs = el("defs", {});
     svg.appendChild(defs);

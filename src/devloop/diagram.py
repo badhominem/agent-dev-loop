@@ -175,9 +175,15 @@ class Diagram:
         groups = self._layout()
         ids = {n.id for n in self.nodes()}
         links = [link for link in self.links if link.a in ids and link.b in ids]
+        rank = {} if self.ordered else _ranks(sorted(ids), self.links)
         parts = []
         for g in groups:
-            boxes = "".join(self._node_html(n) for n in g.nodes)
+            columns: dict[int, list[Node]] = {}
+            for n in g.nodes:
+                columns.setdefault(rank.get(n.id, 0), []).append(n)  # one column per depth, so arrows run sideways
+            boxes = "".join(
+                f'<div class="col">{"".join(self._node_html(n) for n in columns[r])}</div>' for r in sorted(columns)
+            )
             if g.title is None:
                 parts.append(f'<div class="grp flat"><div class="nodes">{boxes}</div></div>')
             else:
