@@ -14,10 +14,18 @@ ROLES = ("planner", "outside-test-writer", "builder", "inside-test-writer", "rev
 DEFAULT_ZONES: dict[str, tuple[str, ...]] = {
     "planner": ("loop/demands/{demand}/", "loop/behaviour/", "loop/context.yaml"),
     "outside-test-writer": ("tests/acceptance/", "loop/demands/{demand}/tests.yaml"),
-    "builder": ("{source}/", "loop/components/", "loop/demands/{demand}/build.yaml"),
+    "builder": ("{source}", "loop/components/", "loop/demands/{demand}/build.yaml"),
     "inside-test-writer": ("tests/unit/",),
     "reviewer": (".loop/",),
 }
+
+DEFAULT_CONTAINERS = ("src", "lib")
+
+# Folders never scanned, wherever they are. Hidden folders (".git", ".venv") are skipped too.
+IGNORED_DIRS = frozenset({"__pycache__", "node_modules", "venv", "env", "build", "dist", "site-packages", "htmlcov"})
+
+# Top-level folders never picked up by auto-detection (when `include` is left out).
+DEFAULT_SKIP = frozenset({"tests", "test", "docs", "loop", *IGNORED_DIRS})
 
 DEFAULT_TEST_COMMAND = ("python", "-m", "pytest", "-q", "-p", "no:warnings", "tests/acceptance", "--junitxml={junit}")
 
@@ -55,7 +63,9 @@ class TableRule:
 @dataclass(frozen=True)
 class Conventions:
     truth_branch: str = "main"
-    source_roots: tuple[str, ...] = ()
+    include: tuple[str, ...] = ()  # folders (trailing "/") and files to scan, relative to the repo root
+    exclude: tuple[str, ...] = ()  # extra globs to leave out, on top of IGNORED_DIRS
+    containers: tuple[str, ...] = DEFAULT_CONTAINERS  # included folders that hold packages, not one themselves
     component_level: str = "auto"
     pr_size_limit: int = 400
     inside_tests: bool = False
@@ -77,10 +87,12 @@ class Conventions:
         )
         zones = dict(DEFAULT_ZONES)
         zones.update({k: as_strs(v) for k, v in as_dict(data.get("zones")).items()})
-        roots = as_strs(data.get("source_roots")) or detect_source_roots(repo)
+        include = normalize_include(repo, as_strs(data.get("include")) or detect_includes(repo))
         return cls(
             truth_branch=str(data.get("truth_branch", "main")),
-            source_roots=roots,
+            include=include,
+            exclude=as_strs(data.get("exclude")),
+            containers=as_strs(data.get("containers")) or DEFAULT_CONTAINERS,
             component_level=str(data.get("component_level", "auto")),
             pr_size_limit=int(str(data.get("pr_size_limit", 400))),
             inside_tests=bool(data.get("inside_tests", False)),
@@ -97,20 +109,42 @@ class Conventions:
     def zones_for(self, role: str, demand: str) -> tuple[str, ...]:
         out: list[str] = []
         for pattern in self.zones.get(role, ()):
-            if "{source}" in pattern:
-                out += [pattern.replace("{source}", r) for r in self.source_roots]
+            if pattern in ("{source}", "{source}/"):
+                out += list(self.include)
+            elif "{source}" in pattern:
+                out += [pattern.replace("{source}", i) for i in self.include]
             else:
                 out.append(pattern.replace("{demand}", demand or "_none_"))
         return tuple(out)
 
 
-def detect_source_roots(repo: Path) -> tuple[str, ...]:
-    """src/ layout if present, otherwise top-level folders that are Python packages."""
+def normalize_include(repo: Path, entries: tuple[str, ...]) -> tuple[str, ...]:
+    """Folders end in "/" and files don't. What exists on disk decides; otherwise the entry's own slash does."""
+    out: list[str] = []
+    for raw in entries:
+        name = raw.strip().removeprefix("./")
+        if not name:
+            continue
+        bare = name.rstrip("/")
+        if (repo / bare).is_dir():
+            out.append(bare + "/")
+        elif (repo / bare).exists():
+            out.append(bare)
+        else:
+            out.append(name)
+    return tuple(dict.fromkeys(out))
+
+
+def detect_includes(repo: Path) -> tuple[str, ...]:
+    """The src/ folder if there is one, otherwise every top-level folder worth scanning."""
     if (repo / "src").is_dir():
-        return ("src",)
-    skip = {"tests", "test", "docs", "loop", ".loop", ".git", ".github", ".claude", "node_modules"}
-    roots = sorted(p.name for p in repo.iterdir() if p.is_dir() and p.name not in skip and (p / "__init__.py").exists())
-    return tuple(roots) or ("src",)
+        return ("src/",)
+    folders = sorted(
+        p.name
+        for p in repo.iterdir()
+        if p.is_dir() and not p.name.startswith(".") and p.name not in DEFAULT_SKIP and not p.name.endswith(".egg-info")
+    )
+    return tuple(f"{f}/" for f in folders) or ("src/",)
 
 
 @dataclass(frozen=True)

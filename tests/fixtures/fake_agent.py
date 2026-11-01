@@ -24,7 +24,7 @@ if role == "planner":
         "    Then the greeting is Hello, Ada!\n"
     )
     (folder / "plan.yaml").write_text(
-        "add:\n  - id: app.greet\n    responsibility: Greets people by name\n    boundary: app\n"
+        "add:\n  - id: src.app.greet\n    responsibility: Greets people by name\n    boundary: app\n"
         "    may_depend_on: []\n    key_items: [greet]\n"
     )
     (folder / "grilling.md").write_text("- Greeting format? 'Hello, <name>!'\n")
@@ -44,8 +44,8 @@ elif role == "outside-test-writer":
     )
 elif role == "builder":
     Path("src/app/greet.py").write_text("def greet(name: str) -> str:\n    return f'Hello, {name}!'\n")
-    data = {"id": "app.greet", "responsibility": "Greets people by name", "boundary": "app", "key_items": ["greet"]}
-    Path("loop/components/app.greet.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
+    data = {"id": "src.app.greet", "responsibility": "Greets people by name", "boundary": "app", "key_items": ["greet"]}
+    Path("loop/components/src.app.greet.yaml").write_text(yaml.safe_dump(data, sort_keys=False))
     (folder / "build.yaml").write_text("status: done\ndecisions:\n  - Used an f-string\nassumptions: []\n")
 elif role == "reviewer":
     out = Path(".loop") / demand

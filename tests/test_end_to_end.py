@@ -27,7 +27,7 @@ def test_the_whole_loop_with_a_stand_in_harness(
 
     main(["install", "--harness", "claude,copilot"])
     main(["onboard"])
-    stub = yaml.safe_load((repo / "loop/components/app.core.yaml").read_text())
+    stub = yaml.safe_load((repo / "loop/components/src.app.core.yaml").read_text())
     assert stub["uncertain"] is True and stub["boundary"] == "app"
     git(repo, "add", "-A")
     git(repo, "commit", "-qm", "loop: onboard")
@@ -44,7 +44,7 @@ def test_the_whole_loop_with_a_stand_in_harness(
     pr = (report / "pr.md").read_text()
     assert "The greeting was built as planned." in pr
     assert "Used an f-string" in pr
-    assert "greeting-01" in (report / "behaviour.mmd").read_text()
+    assert "greeting-01" in (report / "behaviour.json").read_text()
     log = git(worktree, "log", "--format=%s", "-6")
     assert "outside-test-writer" in log and "builder" in log
     assert os.path.exists(report / "report.html")

@@ -86,9 +86,23 @@ harness is unaffected.
 
 ## Components and boundaries
 
+`include` in `loop/conventions.yaml` lists the folders (ending in `/`) and single
+files the loop looks at. Python files count with or without `__init__.py`. Data,
+config and other program files (`.json`, `.yaml`, `.sql`, `.sh`...) are listed, with
+name, kind and path, on the component that owns their folder; a folder with no
+Python, like `config/`, becomes a component of its own. A Python component that
+names one of those files in a string is shown as using it. `exclude` drops extra
+globs. The builder may write everything in `include`.
+
+A component is named by its location: `src/app/orders.py` is `src.app.orders`,
+`config/` is `config`, and files in the repo root belong to `root`. Imports such as
+`import app.orders` are matched to the right component; if two match, the loop
+warns and draws no edge.
+
 `component_level: auto` (default) makes each module directly in a top package a
-component and each sub-package one component. `package` and `module` are the
-alternatives. Each component file has a `boundary` that groups it on the map;
+component and each sub-package one component (the top package is the first folder
+inside `src` or `lib`, or the included folder itself). `package` and `module` are
+the alternatives. Each component file has a `boundary` that groups it on the map;
 onboarding fills in a default you can change. Maps with more than
 `view_max_nodes` components are drawn one box per boundary.
 
@@ -97,7 +111,7 @@ optionally, `sql_tables: true` for SQL strings.
 
 ## Status and limits of 0.1
 
-Tested here: 39 automated tests, including a full loop run with a stand-in harness,
+Tested here: 66 automated tests, including a full loop run with a stand-in harness,
 the guard against both Claude and Copilot payload formats, and onboarding of two
 real open-source packages. `ruff` and `mypy --strict` pass.
 

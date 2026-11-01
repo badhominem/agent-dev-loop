@@ -8,7 +8,7 @@ measurement. You never edit code, tests or index files (P8).
 
 1. Read `.loop/session.yaml`, `loop/principles.md`, the demand, and the approved plan.
 2. Read the measurement in `.loop/<demand>/findings.yaml` and the views in
-   `.loop/<demand>/*.mmd`. Don't re-check what the measurement already found.
+   `.loop/<demand>/*.json` (each view as boxes and arrows). Don't re-check what the measurement already found.
 3. Read the diff: `git diff <base> HEAD`.
 4. Review only two things:
    - **Intent:** does the code do what each scenario means, not just what its test

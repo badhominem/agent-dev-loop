@@ -59,9 +59,11 @@ Check it: `loop --help`. If `loop` isn't found or is blocked, every command also
 as `python -m devloop ...` (`python3` on Linux). The [hook](#hook-command-blocked-or-not-found)
 needs the same treatment.
 
-`loop` makes no network calls. The report pages it writes load their diagram library
-from `cdn.jsdelivr.net` when you open them in a browser. If that host is blocked, the
-diagrams don't draw, but the `.mmd` files next to the report still hold them.
+`loop` makes no network calls. The report pages it writes draw their diagrams as plain
+HTML with a few lines of inline script, so they need nothing from the internet (only
+the page fonts, which fall back to system fonts). Without script, the boxes still show
+and each diagram has a "Connections" list with the arrows. Each view is also written
+as a `.json` file next to the report.
 
 ---
 
@@ -125,7 +127,7 @@ each run.
 truth_branch: main
 harness: copilot                 # the default is claude: change this
 worktree_root: ".loop/worktrees" # recommended for Copilot, see below
-source_roots: [src]              # or leave out to detect
+include: [src/, config/]         # folders (end with /) and files to scan; leave out to detect
 test_command: [python, -m, pytest, -q, -p, "no:warnings", tests/acceptance, "--junitxml={junit}"]
 ```
 
@@ -225,7 +227,7 @@ Read-only. One line per demand: ID, state, who claimed it, base commit.
 
 ### `loop views 0001`: redraw the views
 
-Re-reads the code and index files and rewrites the report and `.mmd` files. It runs
+Re-reads the code and index files and rewrites the report and `.json` view files. It runs
 no agent and changes nothing in git. Use it after editing a plan or scenarios by hand.
 
 ### `loop approve 0001`: fix the plan as the contract
@@ -260,7 +262,7 @@ Runs two **unattended** Copilot sessions in the worktree, one after the other:
 2. Runs `copilot -p … --agent loop-reviewer`. It never edits code, and only writes
    captions and real gaps to `.loop/0001-…/review.yaml`.
 3. Measures again with the reviewer's notes merged, and writes into the worktree's
-   `.loop/0001-…/`: `report.html`, `pr.md`, `findings.yaml` and the `.mmd` views.
+   `.loop/0001-…/`: `report.html`, `pr.md`, `findings.yaml` and the `.json` views.
 4. Prints each finding and the **verdict**: `clean`, `back` or `stop`.
 
 ### `loop run 0001`: stages 2 and 3 together
@@ -287,8 +289,10 @@ cd .loop/worktrees/0001-*/
 git push -u origin demand/0001-*
 ```
 
-Open the PR and paste `.loop/0001-…/pr.md` as its description. It includes the views
-as Mermaid, which GitHub draws. After it's merged:
+Open the PR and paste `.loop/0001-…/pr.md` as its description. It draws the main views
+as Mermaid, which GitHub renders, and summarises each in text (what is flagged, and a
+count of the rest). The full HTML report, where hovering a box follows its arrows, is
+`.loop/0001-…/report.html`; it is not committed, so open it from the worktree. After it's merged:
 
 ```bash
 loop close 0001 --merged <merge-commit-or-PR>   # removes the worktree, keeps the branch
@@ -362,7 +366,7 @@ loop close 0001 --merged <merge-commit-or-PR>   # removes the worktree, keeps th
 | "… points at no code" | a component file without code, often after moving modules | delete or rename the file in `loop/components/` |
 | The map draws one box per group | more components than `view_max_nodes` | raise it, or split boundaries more finely |
 | `approve` says the demand conflicts | the truth branch moved and touched the same files | resolve the rebase in the worktree, then approve again |
-| Diagrams don't draw in the report | `cdn.jsdelivr.net` blocked | open the `.mmd` files in an editor with a Mermaid preview |
+| Diagrams show boxes but no arrows | scripts are blocked in the browser | open the "Connections" list under the diagram, or the `.json` view file |
 
 ---
 

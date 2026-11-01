@@ -70,8 +70,10 @@ def cmd_onboard(_: argparse.Namespace) -> None:
     report = onboard_report(repo)
     out = repo / ".loop" / "onboard"
     write_outputs(report, out)
+    listed = sum(len(f.files) for f in facts.values())
     print(
-        f"[loop] {len(facts)} components found with component_level: {conventions.component_level}; "
+        f"[loop] {len(facts)} components found with component_level: {conventions.component_level}, "
+        f"scanning {', '.join(conventions.include) or 'nothing'}; {listed} data, config or program files listed; "
         f"{created} draft component files written to loop/components/."
     )
     print(

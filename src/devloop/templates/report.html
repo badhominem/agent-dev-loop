@@ -28,8 +28,39 @@ nav a:focus-visible,nav a:hover{border-color:var(--fg)}
 .view h2{font-family:var(--display);font-weight:600;font-size:1.35rem;margin:0}
 .when{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .cap{margin:0;max-width:70ch}
-.diagram{background:var(--diagram);border:1px solid var(--line);border-radius:6px;padding:14px;overflow-x:auto}
-.diagram pre{margin:0;background:transparent;color:#1d2624}
+.diagram{background:var(--diagram);border:1px solid var(--line);border-radius:6px;padding:14px;overflow-x:auto;color:#1d2624}
+/* Diagrams are plain HTML: groups of boxes laid out by CSS, arrows drawn on top by the script below */
+.dg{position:relative;isolation:isolate;font-family:var(--body)}
+.dg-body{display:flex;flex-wrap:wrap;gap:20px 64px;align-items:flex-start}
+.grp{background:rgba(201,211,208,.28);border:1px solid #c9d3d0;border-radius:8px;padding:8px 10px 12px;flex:none}
+.grp.flat{background:none;border:0;padding:0}
+.grp h3{margin:0 0 10px;font-family:var(--mono);font-weight:500;font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:#5d6b68;overflow-wrap:anywhere}
+.nodes{display:flex;flex-direction:row;align-items:flex-start;gap:52px}
+.col{display:flex;flex-direction:column;gap:22px}
+.node{position:relative;z-index:2;box-sizing:border-box;width:216px;max-width:100%;display:flex;flex-direction:column;gap:3px;background:#fff;border:1.5px solid #7d8584;border-radius:6px;padding:7px 10px;font-size:.82rem;line-height:1.35;overflow-wrap:break-word;transition:opacity .12s}
+.node .t{font-weight:600;font-size:.84rem}
+.node .i{font-style:italic;color:#5d6b68}
+.node .n{font-size:.74rem;color:#5d6b68}
+.node.table{border-radius:18px;padding-inline:14px}
+.node:focus-visible{outline:2px solid #2f62a3;outline-offset:2px}
+.k-added{background:#dce9f7;border-color:#2f62a3}
+.k-changed{background:#f6ebdd;border-color:#a8641f}
+.k-removed{background:#eceeee;border-color:#7d8584;border-style:dashed;color:#5a6261}
+.k-missing{background:#fff;border-color:#2f62a3;border-style:dashed}
+.k-unplanned{background:#ece5f7;border-color:#6a4fa3}
+.k-broken{background:#f7dede;border-color:#b53a3a;border-width:3px}
+.k-uncertain{background:#fffbe8;border-color:#a8641f;border-style:dotted}
+.k-passing{background:#dceee3;border-color:#2f7a4f}
+.k-failing{background:#f7dede;border-color:#b53a3a}
+.k-uncovered{background:#fff;border-color:#a8641f;border-style:dashed}
+.dg-edges{position:absolute;left:0;top:0;z-index:1;pointer-events:none;overflow:visible}
+.dg .e{fill:none;transition:opacity .12s}
+.dg-label{position:absolute;z-index:3;transform:translate(-50%,-50%);max-width:170px;text-align:center;background:#fbfcfc;border-radius:3px;padding:0 4px;font-size:.7rem;line-height:1.3;color:#3d4947;pointer-events:none;transition:opacity .12s}
+.dg.focus .node:not(.hot){opacity:.38}
+.dg.focus .e:not(.hot),.dg.focus .dg-label:not(.hot){opacity:.1}
+.conn{margin-top:12px;font-size:.8rem;color:#5d6b68}
+.conn summary{cursor:pointer;font-family:var(--mono);font-size:.72rem;letter-spacing:.04em}
+.conn ul{margin:6px 0 0;padding-left:18px;overflow-wrap:anywhere}
 .outs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 @media (max-width:680px){.outs{grid-template-columns:1fr}}
 .out{border-radius:6px;padding:10px 12px;font-size:.9rem;min-width:0}
@@ -62,11 +93,130 @@ nav a:focus-visible,nav a:hover{border-color:var(--fg)}
     <span><i class="sw" style="background:#dceee3;border-color:#2f7a4f"></i>passing</span>
     <span><i class="sw" style="background:#ffffff;border-color:#a8641f;border-style:dashed"></i>no test</span>
     <span><i class="sw" style="background:#fffbe8;border-color:#a8641f;border-style:dotted"></i>draft to confirm</span>
+    <span>Arrows point from a component to what it uses, or to the table it writes. Hover a box to follow its arrows.</span>
   </div>
   <nav>{{nav}}</nav>
 {{sections}}
 </div>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
 <script>
-  if (window.mermaid) { window.mermaid.initialize({ startOnLoad: true }); }
+(function () {
+  var STYLES = {{edge_styles}};
+  var NS = "http://www.w3.org/2000/svg";
+  var DIR = { r: [1, 0], l: [-1, 0], b: [0, 1], t: [0, -1] };
+  function el(name, attrs) {
+    var e = document.createElementNS(NS, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function port(n, side, f) {
+    if (side === "r") return [n.x + n.w, n.y + n.h * f];
+    if (side === "l") return [n.x, n.y + n.h * f];
+    if (side === "b") return [n.x + n.w * f, n.y + n.h];
+    return [n.x + n.w * f, n.y];
+  }
+  // A wide diagram is shrunk to fit its frame, down to 70%; beyond that the frame scrolls sideways.
+  function fit(dg) {
+    dg.style.transform = "";
+    dg.style.marginBottom = "";
+    var s = 1;
+    if (dg.scrollWidth > dg.clientWidth + 2) s = Math.max(0.7, dg.clientWidth / dg.scrollWidth);
+    if (s < 1) {
+      dg.style.transformOrigin = "0 0";
+      dg.style.transform = "scale(" + s + ")";
+      dg.style.marginBottom = dg.offsetHeight * (s - 1) + "px";
+    }
+    return s;
+  }
+  function draw(dg, uid) {
+    var scale = fit(dg);
+    var svg = dg.querySelector(".dg-edges");
+    var links = JSON.parse(dg.dataset.links || "[]");
+    svg.replaceChildren();
+    dg.querySelectorAll(".dg-label").forEach(function (x) { x.remove(); });
+    if (!links.length) return;
+    var o = dg.getBoundingClientRect();
+    var h = dg.querySelector(".dg-body").offsetHeight;
+    svg.setAttribute("width", dg.scrollWidth);
+    svg.setAttribute("height", h);
+    var nodes = {};
+    dg.querySelectorAll(".node").forEach(function (n) {
+      var r = n.getBoundingClientRect();
+      nodes[n.dataset.id] = { x: (r.left - o.left) / scale, y: (r.top - o.top) / scale, w: r.width / scale, h: r.height / scale };
+    });
+    var defs = el("defs", {});
+    svg.appendChild(defs);
+    Object.keys(STYLES).forEach(function (k) {
+      var m = el("marker", { id: uid + k, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto" });
+      m.appendChild(el("path", { d: "M0,0 L10,5 L0,10 z", fill: STYLES[k].color }));
+      defs.appendChild(m);
+    });
+    var plans = [];
+    links.forEach(function (l) {
+      var a = nodes[l.a], b = nodes[l.b];
+      if (!a || !b || a === b) return;
+      var s = a.x + a.w + 10 <= b.x ? ["r", "l"] : b.x + b.w + 10 <= a.x ? ["l", "r"] : a.y <= b.y ? ["b", "t"] : ["t", "b"];
+      plans.push({ l: l, a: a, b: b, s: s, f: [0.5, 0.5] });
+    });
+    var ports = {};
+    plans.forEach(function (p) {
+      [[p.l.a, p.s[0], 0], [p.l.b, p.s[1], 1]].forEach(function (t) {
+        (ports[t[0] + "|" + t[1]] = ports[t[0] + "|" + t[1]] || []).push({ p: p, end: t[2], side: t[1] });
+      });
+    });
+    Object.keys(ports).forEach(function (key) {
+      var list = ports[key];
+      var side = list[0].side;
+      function other(it) { return it.end ? it.p.a : it.p.b; }
+      list.sort(function (x, y) { return side === "l" || side === "r" ? other(x).y - other(y).y : other(x).x - other(y).x; });
+      list.forEach(function (it, i) { it.p.f[it.end] = (i + 1) / (list.length + 1); });
+    });
+    plans.forEach(function (p) {
+      var st = STYLES[p.l.kind] || STYLES["default"];
+      var p0 = port(p.a, p.s[0], p.f[0]), p1 = port(p.b, p.s[1], p.f[1]);
+      var k = Math.max(36, Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / 2.5);
+      var d0 = DIR[p.s[0]], d1 = DIR[p.s[1]];
+      var c0 = [p0[0] + d0[0] * k, p0[1] + d0[1] * k], c1 = [p1[0] + d1[0] * k, p1[1] + d1[1] * k];
+      var dash = st.dash || (p.l.dotted ? "2 4" : "");
+      var path = el("path", {
+        "class": "e", d: "M" + p0 + " C" + c0 + " " + c1 + " " + p1, stroke: st.color, "stroke-width": st.width,
+        "marker-end": "url(#" + uid + (STYLES[p.l.kind] ? p.l.kind : "default") + ")"
+      });
+      if (dash) path.setAttribute("stroke-dasharray", dash);
+      path.dataset.a = p.l.a; path.dataset.b = p.l.b;
+      svg.appendChild(path);
+      if (p.l.label) {
+        var lab = document.createElement("span");
+        lab.className = "dg-label";
+        lab.textContent = p.l.label;
+        lab.style.left = (p0[0] + 3 * c0[0] + 3 * c1[0] + p1[0]) / 8 + "px";
+        lab.style.top = (p0[1] + 3 * c0[1] + 3 * c1[1] + p1[1]) / 8 + "px";
+        lab.dataset.a = p.l.a; lab.dataset.b = p.l.b;
+        dg.appendChild(lab);
+      }
+    });
+  }
+  function focus(dg, id) {
+    var hot = {};
+    hot[id] = 1;
+    dg.querySelectorAll(".e,.dg-label").forEach(function (x) {
+      var on = x.dataset.a === id || x.dataset.b === id;
+      x.classList.toggle("hot", on);
+      if (on) { hot[x.dataset.a] = 1; hot[x.dataset.b] = 1; }
+    });
+    dg.querySelectorAll(".node").forEach(function (n) { n.classList.toggle("hot", !!hot[n.dataset.id]); });
+    dg.classList.add("focus");
+  }
+  document.querySelectorAll(".dg").forEach(function (dg, i) {
+    var uid = "m" + i + "-";
+    var redraw = function () { draw(dg, uid); };
+    redraw();
+    if (window.ResizeObserver) new ResizeObserver(redraw).observe(dg.querySelector(".dg-body"));
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
+    function over(e) { var n = e.target.closest && e.target.closest(".node"); if (n) focus(dg, n.dataset.id); else dg.classList.remove("focus"); }
+    dg.addEventListener("mouseover", over);
+    dg.addEventListener("focusin", over);
+    dg.addEventListener("mouseleave", function () { dg.classList.remove("focus"); });
+    dg.addEventListener("focusout", function () { dg.classList.remove("focus"); });
+  });
+})();
 </script>
