@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from dataclasses import dataclass, field
 
 # How arrows are drawn, by kind. The report template reads this table, so it lives here once.
@@ -47,6 +48,40 @@ LINK_WORDS = {
     "added": "New connection",
     "removed": "Connection removed",
 }
+
+
+# Box colours for Mermaid, which can't read the report's stylesheet: fill, border, extra style.
+NODE_STYLES: dict[str, str] = {
+    "added": "fill:#dce9f7,stroke:#2f62a3,color:#16202a",
+    "changed": "fill:#f6ebdd,stroke:#a8641f,color:#16202a",
+    "removed": "fill:#eceeee,stroke:#7d8584,color:#5a6261,stroke-dasharray:4 3",
+    "missing": "fill:#ffffff,stroke:#2f62a3,color:#16202a,stroke-dasharray:4 3",
+    "unplanned": "fill:#ece5f7,stroke:#6a4fa3,color:#16202a",
+    "broken": "fill:#f7dede,stroke:#b53a3a,color:#16202a,stroke-width:3px",
+    "uncertain": "fill:#fffbe8,stroke:#a8641f,color:#16202a,stroke-dasharray:2 2",
+    "passing": "fill:#dceee3,stroke:#2f7a4f,color:#16202a",
+    "failing": "fill:#f7dede,stroke:#b53a3a,color:#16202a",
+    "uncovered": "fill:#ffffff,stroke:#a8641f,color:#16202a,stroke-dasharray:4 3",
+}
+
+
+def _wrap(text: str, width: int = 26) -> list[str]:
+    """Lines of at most `width` characters where possible, broken at spaces and after dots or slashes only."""
+    lines: list[str] = []
+    line = ""
+    for word in text.split():
+        for i, piece in enumerate(re.findall(r"[^./]+[./]?|[./]", word)):
+            gap = " " if i == 0 and line else ""
+            if line and len(line) + len(gap) + len(piece) > width:
+                lines.append(line)
+                line, gap = "", ""
+            line += gap + piece
+    return [*lines, line] if line else lines
+
+
+def _mm(text: str) -> str:
+    """Safe inside a quoted Mermaid label: no markup, quotes or pipes of our own."""
+    return text.replace("&", "#amp;").replace("<", "#lt;").replace(">", "#gt;").replace('"', "#quot;").replace("|", "/")
 
 
 @dataclass(frozen=True)
@@ -217,6 +252,42 @@ class Diagram:
             if text:
                 inner += f'<span class="{css}">{_prose(text)}</span>'
         return f'<div class="node{shape}{kind}" data-id="{html.escape(n.id, quote=True)}" tabindex="0">{inner}</div>'
+
+    def to_mermaid(self) -> str:
+        """Mermaid text, which GitHub draws in a pull request. Lines are broken here so Mermaid never has to wrap."""
+        out = ["flowchart LR"]
+        names = {n.id: f"n{i}" for i, n in enumerate(self.nodes())}
+        used: dict[str, list[str]] = {}
+        for gi, g in enumerate(self._layout()):
+            if g.title is not None:
+                out.append(f'  subgraph g{gi}["{_mm("<br/>".join(_wrap(g.title)))}"]')
+            for n in g.nodes:
+                label = ["<b>" + "<br/>".join(_mm(x) for x in _wrap(n.title)) + "</b>"]
+                label += [_mm(x) for x in _wrap(n.body)]
+                label += ["<i>" + "<br/>".join(_mm(x) for x in _wrap(n.items)) + "</i>"] if n.items else []
+                label += ["<small>" + "<br/>".join(_mm(x) for x in _wrap(n.note)) + "</small>"] if n.note else []
+                text = "<br/>".join(label)
+                out.append(f'  {names[n.id]}[("{text}")]' if n.shape == "table" else f'  {names[n.id]}["{text}"]')
+                if n.kind in NODE_STYLES:
+                    used.setdefault(n.kind, []).append(names[n.id])
+            if g.title is not None:
+                out += ["  end", f"  style g{gi} fill:#f1f4f3,stroke:#c9d3d0,color:#16202a"]
+        styles: list[str] = []
+        shown = 0
+        for x in self.links:
+            if x.a not in names or x.b not in names:
+                continue
+            arrow = "-.->" if x.dotted else "-->"
+            text = f"|{_mm(x.label)}|" if x.label else ""
+            out.append(f"  {names[x.a]} {arrow}{text} {names[x.b]}")
+            look = EDGE_STYLES.get(x.kind or "default", EDGE_STYLES["default"])
+            dash = f",stroke-dasharray:{look['dash']}" if look["dash"] else ""
+            styles.append(f"  linkStyle {shown} stroke:{look['color']},stroke-width:{look['width']}px{dash}")
+            shown += 1
+        out += styles
+        for kind, ids in sorted(used.items()):
+            out += [f"  classDef {kind} {NODE_STYLES[kind]}", f"  class {','.join(ids)} {kind}"]
+        return "\n".join(out) + "\n"
 
     def to_markdown(self) -> str:
         """A text summary for places that can't draw HTML (a pull request): what is flagged, then the rest counted."""

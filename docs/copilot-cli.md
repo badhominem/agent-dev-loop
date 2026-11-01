@@ -262,7 +262,7 @@ Runs two **unattended** Copilot sessions in the worktree, one after the other:
 2. Runs `copilot -p … --agent loop-reviewer`. It never edits code, and only writes
    captions and real gaps to `.loop/0001-…/review.yaml`.
 3. Measures again with the reviewer's notes merged, and writes into the worktree's
-   `.loop/0001-…/`: `report.html`, `pr.md`, `findings.yaml`, the `.json` views and `<demand>-report.zip` (the report, findings and views in one file to attach to the PR).
+   `.loop/0001-…/`: `report.html`, `pr.md`, `findings.yaml` and the `.json` views.
 4. Prints each finding and the **verdict**: `clean`, `back` or `stop`.
 
 ### `loop run 0001`: stages 2 and 3 together
@@ -289,11 +289,10 @@ cd .loop/worktrees/0001-*/
 git push -u origin demand/0001-*
 ```
 
-Open the PR and paste `.loop/0001-…/pr.md` as its description. GitHub can't draw HTML
-diagrams, so it summarises each view in text and says which section of the report to
-open. To let reviewers see the drawn diagrams, drag `.loop/0001-…/0001-…-report.zip`
-into the PR description (GitHub accepts `.zip`, not `.html`). The reviewer unzips it and
-opens `report.html`. After it's merged:
+Open the PR and paste `.loop/0001-…/pr.md` as its description. It draws the main views
+as Mermaid, which GitHub renders, and summarises each in text (what is flagged, and a
+count of the rest). The full HTML report, where hovering a box follows its arrows, is
+`.loop/0001-…/report.html`; it is not committed, so open it from the worktree. After it's merged:
 
 ```bash
 loop close 0001 --merged <merge-commit-or-PR>   # removes the worktree, keeps the branch

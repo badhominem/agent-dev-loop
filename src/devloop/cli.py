@@ -12,7 +12,7 @@ from devloop.demands import Demand, Queue
 from devloop.facts import FactExtractor
 from devloop.index import load_opinions, opinions_dir, stub_from_facts
 from devloop.installer import install
-from devloop.review import Report, build_report, onboard_report, write_outputs, zip_name
+from devloop.review import Report, build_report, onboard_report, write_outputs
 from devloop.runner import Runner, Session
 
 LIFECYCLE = "new -> claimed <-> returned -> approved -> closed, or rejected"
@@ -42,7 +42,6 @@ def _print_report(report: Report, out: Path) -> None:
     print(f"[loop] views and report in {out}")
     if report.stage == "review":
         print(f"[loop] verdict: {report.verdict()}")
-        print(f"[loop] To share the drawn report, drag {out / zip_name(report)} into the PR description.")
 
 
 # ---------------------------------------------------------------- commands

@@ -1,6 +1,7 @@
 import json
+import re
 
-from devloop.diagram import Diagram, Link, Node, _ranks
+from devloop.diagram import Diagram, Link, Node, _ranks, _wrap
 
 
 def test_long_ids_can_break_at_dots_and_text_is_escaped() -> None:
@@ -65,3 +66,32 @@ def test_json_and_markdown_outputs() -> None:
     assert "- Not flagged: 2 unchanged boxes and 1 ordinary connection." in md
     assert "mermaid" not in md
     assert Diagram().to_markdown() == "- Nothing to show.\n"
+
+
+def test_mermaid_breaks_lines_itself_and_never_passes_markup_through() -> None:
+    d = Diagram()
+    d.add(
+        Node(
+            "a", "src.shop.orders.dedupe.something.long", 'Keeps <b>latest</b> and drops "the rest" | now', kind="added"
+        ),
+        "orders",
+    )
+    d.add(Node("t", "raw.orders", shape="table"), "Tables")
+    d.link("a", "t", "writes", "added")
+    d.link("a", "gone")
+    text = d.to_mermaid()
+    assert text.startswith("flowchart LR\n")
+    assert "subgraph g" in text and "[(" in text and "n0 --> |" not in text
+    assert "n0 -->|writes| n1" in text and "gone" not in text
+    assert "linkStyle 0 stroke:#2f62a3" in text
+    assert "classDef added" in text and "class n0 added" in text
+    assert "#lt;b#gt;latest#lt;/b#gt;" in text and "#quot;the rest#quot;" in text and "| now" not in text
+    assert all(len(x) <= 40 for x in re.findall(r"<b>(.*?)</b>", text)[0].split("<br/>"))  # no long unbroken line
+
+
+def test_wrap_breaks_at_spaces_and_after_dots_not_inside_words() -> None:
+    lines = _wrap("src.shop.orders.dedupe responsibility to write", 16)
+    assert all(len(x) <= 16 for x in lines) and "".join(lines).replace(
+        " ", ""
+    ) == "src.shop.orders.dedupe responsibility to write".replace(" ", "")
+    assert _wrap("supercalifragilisticexpialidocious", 10) == ["supercalifragilisticexpialidocious"]
